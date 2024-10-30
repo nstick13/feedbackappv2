@@ -1,0 +1,22 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="text-center py-5">
+    <h1 class="display-4 mb-4">Welcome to AI-Powered Feedback Platform</h1>
+    <p class="lead mb-4">Get structured, meaningful feedback through AI-guided conversations</p>
+    
+    {% if not current_user.is_authenticated %}
+    <div class="d-grid gap-2 col-6 mx-auto">
+        <a href="{{ url_for('google_auth.login') }}" class="btn btn-primary btn-lg">
+            Login with Google to Get Started
+        </a>
+    </div>
+    {% else %}
+    <div class="d-grid gap-2 col-6 mx-auto">
+        <a href="{{ url_for('main.dashboard') }}" class="btn btn-primary btn-lg">
+            Go to Dashboard
+        </a>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

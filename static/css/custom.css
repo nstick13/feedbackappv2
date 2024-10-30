@@ -1,0 +1,21 @@
+/* Minimal custom styles to complement Bootstrap theme */
+.feedback-entry {
+    border-left: 3px solid var(--bs-primary);
+    padding-left: 1rem;
+}
+
+.analysis {
+    background-color: rgba(var(--bs-info-rgb), 0.1);
+    padding: 1rem;
+    border-radius: 0.25rem;
+}
+
+.card {
+    border: none;
+    box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075);
+}
+
+.list-group-item-action:hover {
+    transform: translateX(5px);
+    transition: transform 0.2s ease-in-out;
+}
