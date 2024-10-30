@@ -56,8 +56,14 @@ def create_feedback_request():
             raise ValueError("Topic is required")
         
         logger.debug(f"Creating feedback request for topic: {topic}", extra={"request_id": request_id})
-        logger.debug(f"Using SMTP configuration - Username: {current_app.config['MAIL_USERNAME']}, Server: {current_app.config['MAIL_SERVER']}", 
-                    extra={"request_id": request_id})
+        logger.debug(
+            f"SMTP Configuration Details:\n"
+            f"Server: {current_app.config['MAIL_SERVER']}\n"
+            f"Port: {current_app.config['MAIL_PORT']}\n"
+            f"TLS: {current_app.config['MAIL_USE_TLS']}\n"
+            f"Username: {current_app.config['MAIL_USERNAME']}", 
+            extra={"request_id": request_id}
+        )
         
         # Generate AI prompts
         prompts = generate_feedback_prompts(topic)
@@ -75,6 +81,11 @@ def create_feedback_request():
         email_errors = []
         for email in provider_emails:
             logger.debug(f"Processing provider email: {email}", extra={"request_id": request_id})
+            
+            # Verify email address
+            if email.lower() == 'nateandcadygoeverywhere@gmail.com':
+                logger.info(f"Verified target email address: {email}", extra={"request_id": request_id})
+            
             provider = User.query.filter_by(email=email).first()
             
             if provider:
@@ -98,15 +109,21 @@ def create_feedback_request():
                     logger.debug(f"Generated feedback URL for {email}: {feedback_url}", 
                                extra={"request_id": request_id})
                     
-                    # Send email invitation
-                    logger.info(f"Sending feedback invitation to {email}", extra={"request_id": request_id})
-                    logger.debug(f"Email context for {email}:\n"
-                               f"- From: {current_app.config['MAIL_USERNAME']}\n"
-                               f"- To: {email}\n"
-                               f"- Subject: Feedback Request from {current_user.username}\n"
-                               f"- Topic: {topic}\n"
-                               f"- URL: {feedback_url}",
-                               extra={"request_id": request_id})
+                    # Prepare email invitation
+                    logger.info(f"Preparing to send feedback invitation to {email}", extra={"request_id": request_id})
+                    logger.debug(
+                        f"Email Context Details:\n"
+                        f"From: {current_app.config['MAIL_USERNAME']}\n"
+                        f"To: {email}\n"
+                        f"Subject: Feedback Request from {current_user.username}\n"
+                        f"Topic: {topic}\n"
+                        f"Feedback URL: {feedback_url}\n"
+                        f"Request ID: {request_id}",
+                        extra={"request_id": request_id}
+                    )
+                    
+                    # Monitor SMTP connection
+                    logger.debug("Initiating SMTP connection for sending invitation", extra={"request_id": request_id})
                     
                     try:
                         send_feedback_invitation(
@@ -116,19 +133,28 @@ def create_feedback_request():
                             feedback_url,
                             request_id
                         )
-                        logger.info(f"Successfully sent invitation email to {email} at {datetime.utcnow()}", 
-                                  extra={"request_id": request_id})
+                        logger.info(
+                            f"Successfully sent invitation email to {email}\n"
+                            f"Time: {datetime.utcnow()}\n"
+                            f"SMTP Status: Success", 
+                            extra={"request_id": request_id}
+                        )
                     except Exception as email_error:
                         logger.error(
-                            f"Failed to send invitation email to {email}. "
-                            f"Error: {str(email_error)}",
+                            f"Failed to send invitation email to {email}\n"
+                            f"Error Type: {type(email_error).__name__}\n"
+                            f"Error Message: {str(email_error)}\n"
+                            f"Stack Trace: {email_error.__traceback__}",
                             extra={"request_id": request_id},
                             exc_info=True
                         )
                         email_errors.append(email)
                 except Exception as e:
                     logger.error(
-                        f"Error preparing email for {email}: {str(e)}",
+                        f"Error preparing email for {email}\n"
+                        f"Error Type: {type(e).__name__}\n"
+                        f"Error Message: {str(e)}\n"
+                        f"Stack Trace: {e.__traceback__}",
                         extra={"request_id": request_id},
                         exc_info=True
                     )
