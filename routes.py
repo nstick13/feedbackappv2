@@ -82,86 +82,76 @@ def create_feedback_request():
         for email in provider_emails:
             logger.debug(f"Processing provider email: {email}", extra={"request_id": request_id})
             
-            # Verify email address
-            if email.lower() == 'nateandcadygoeverywhere@gmail.com':
-                logger.info(f"Verified target email address: {email}", extra={"request_id": request_id})
-            
-            provider = User.query.filter_by(email=email).first()
-            
-            if provider:
+            try:
+                # Create provider entry with email
                 invitation_sent_time = datetime.utcnow()
-                provider_entry = FeedbackProvider(
+                provider = FeedbackProvider(
                     feedback_request_id=feedback_request.id,
-                    provider_id=provider.id,
+                    provider_email=email,
                     invitation_sent=invitation_sent_time
                 )
-                db.session.add(provider_entry)
+                db.session.add(provider)
                 logger.debug(f"Created provider entry for {email} at {invitation_sent_time}", 
                            extra={"request_id": request_id})
                 
+                # Generate feedback URL
+                feedback_url = url_for(
+                    'main.feedback_session',
+                    request_id=feedback_request.id,
+                    _external=True
+                )
+                logger.debug(f"Generated feedback URL for {email}: {feedback_url}", 
+                            extra={"request_id": request_id})
+                
+                # Prepare email invitation
+                logger.info(f"Preparing to send feedback invitation to {email}", extra={"request_id": request_id})
+                logger.debug(
+                    f"Email Context Details:\n"
+                    f"From: {current_app.config['MAIL_USERNAME']}\n"
+                    f"To: {email}\n"
+                    f"Subject: Feedback Request from {current_user.username}\n"
+                    f"Topic: {topic}\n"
+                    f"Feedback URL: {feedback_url}\n"
+                    f"Request ID: {request_id}",
+                    extra={"request_id": request_id}
+                )
+                
+                # Monitor SMTP connection
+                logger.debug("Initiating SMTP connection for sending invitation", extra={"request_id": request_id})
+                
                 try:
-                    # Generate feedback URL
-                    feedback_url = url_for(
-                        'main.feedback_session',
-                        request_id=feedback_request.id,
-                        _external=True
+                    send_feedback_invitation(
+                        email,
+                        current_user.username,
+                        topic,
+                        feedback_url,
+                        request_id
                     )
-                    logger.debug(f"Generated feedback URL for {email}: {feedback_url}", 
-                               extra={"request_id": request_id})
-                    
-                    # Prepare email invitation
-                    logger.info(f"Preparing to send feedback invitation to {email}", extra={"request_id": request_id})
-                    logger.debug(
-                        f"Email Context Details:\n"
-                        f"From: {current_app.config['MAIL_USERNAME']}\n"
-                        f"To: {email}\n"
-                        f"Subject: Feedback Request from {current_user.username}\n"
-                        f"Topic: {topic}\n"
-                        f"Feedback URL: {feedback_url}\n"
-                        f"Request ID: {request_id}",
+                    logger.info(
+                        f"Successfully sent invitation email to {email}\n"
+                        f"Time: {datetime.utcnow()}\n"
+                        f"SMTP Status: Success", 
                         extra={"request_id": request_id}
                     )
-                    
-                    # Monitor SMTP connection
-                    logger.debug("Initiating SMTP connection for sending invitation", extra={"request_id": request_id})
-                    
-                    try:
-                        send_feedback_invitation(
-                            email,
-                            current_user.username,
-                            topic,
-                            feedback_url,
-                            request_id
-                        )
-                        logger.info(
-                            f"Successfully sent invitation email to {email}\n"
-                            f"Time: {datetime.utcnow()}\n"
-                            f"SMTP Status: Success", 
-                            extra={"request_id": request_id}
-                        )
-                    except Exception as email_error:
-                        logger.error(
-                            f"Failed to send invitation email to {email}\n"
-                            f"Error Type: {type(email_error).__name__}\n"
-                            f"Error Message: {str(email_error)}\n"
-                            f"Stack Trace: {email_error.__traceback__}",
-                            extra={"request_id": request_id},
-                            exc_info=True
-                        )
-                        email_errors.append(email)
-                except Exception as e:
+                except Exception as email_error:
                     logger.error(
-                        f"Error preparing email for {email}\n"
-                        f"Error Type: {type(e).__name__}\n"
-                        f"Error Message: {str(e)}\n"
-                        f"Stack Trace: {e.__traceback__}",
+                        f"Failed to send invitation email to {email}\n"
+                        f"Error Type: {type(email_error).__name__}\n"
+                        f"Error Message: {str(email_error)}\n"
+                        f"Stack Trace: {email_error.__traceback__}",
                         extra={"request_id": request_id},
                         exc_info=True
                     )
                     email_errors.append(email)
-            else:
-                logger.warning(f"Provider with email {email} not found in database", 
-                             extra={"request_id": request_id})
+            except Exception as e:
+                logger.error(
+                    f"Error preparing email for {email}\n"
+                    f"Error Type: {type(e).__name__}\n"
+                    f"Error Message: {str(e)}\n"
+                    f"Stack Trace: {e.__traceback__}",
+                    extra={"request_id": request_id},
+                    exc_info=True
+                )
                 email_errors.append(email)
         
         db.session.commit()
@@ -191,12 +181,22 @@ def feedback_session(request_id):
     try:
         logger.debug(f"Accessing feedback session {request_id}", extra={"request_id": session_id})
         feedback_request = FeedbackRequest.query.get_or_404(request_id)
+        
+        # Check if user is the requestor
+        if feedback_request.requestor_id == current_user.id:
+            return render_template(
+                'feedback_session.html',
+                feedback_request=feedback_request,
+                is_provider=False
+            )
+        
+        # Check if user is a provider by email
         provider = FeedbackProvider.query.filter_by(
             feedback_request_id=request_id,
-            provider_id=current_user.id
+            provider_email=current_user.email
         ).first()
         
-        if not provider and feedback_request.requestor_id != current_user.id:
+        if not provider:
             logger.warning(f"Unauthorized access attempt to feedback session {request_id} by user {current_user.id}", 
                          extra={"request_id": session_id})
             return render_template('error.html', error="Unauthorized access"), 403
@@ -204,119 +204,13 @@ def feedback_session(request_id):
         return render_template(
             'feedback_session.html',
             feedback_request=feedback_request,
-            is_provider=bool(provider)
+            is_provider=True
         )
     except Exception as e:
         logger.error(f"Error accessing feedback session: {str(e)}", 
                     extra={"request_id": session_id},
                     exc_info=True)
         return render_template('error.html', error=str(e)), 500
-
-@main.route('/feedback/submit/<int:request_id>', methods=['POST'])
-@login_required
-def submit_feedback(request_id):
-    submission_id = str(uuid.uuid4())
-    try:
-        data = request.get_json()
-        feedback_content = data.get('feedback')
-        
-        if not feedback_content:
-            raise ValueError("Feedback content is required")
-            
-        logger.debug(f"Submitting feedback for request {request_id}", extra={"request_id": submission_id})
-        
-        feedback_request = FeedbackRequest.query.get(request_id)
-        if not feedback_request:
-            logger.error(f"Feedback request {request_id} not found", extra={"request_id": submission_id})
-            raise ValueError("Feedback request not found")
-        
-        # Analyze feedback with AI
-        logger.debug(f"Analyzing feedback content", extra={"request_id": submission_id})
-        analysis = analyze_feedback(feedback_content)
-        
-        submission_time = datetime.utcnow()
-        session = FeedbackSession(
-            feedback_request_id=request_id,
-            provider_id=current_user.id,
-            content={
-                "feedback": feedback_content,
-                "analysis": analysis
-            },
-            completed_at=submission_time
-        )
-        
-        db.session.add(session)
-        logger.debug(f"Created feedback session at {submission_time}", extra={"request_id": submission_id})
-        
-        # Update provider status
-        provider = FeedbackProvider.query.filter_by(
-            feedback_request_id=request_id,
-            provider_id=current_user.id
-        ).first()
-        if provider:
-            provider.status = 'completed'
-        
-        # Get requestor's email
-        requestor = User.query.get(feedback_request.requestor_id)
-        feedback_url = url_for('main.feedback_session', request_id=request_id, _external=True)
-        logger.debug(f"Generated feedback URL: {feedback_url}", extra={"request_id": submission_id})
-        
-        email_errors = []
-        
-        # Send email notifications with error handling
-        try:
-            logger.info(f"Sending feedback submission notification to {requestor.email}", 
-                       extra={"request_id": submission_id})
-            send_feedback_submitted_notification(
-                requestor.email,
-                current_user.username,
-                feedback_request.topic,
-                feedback_url,
-                submission_id
-            )
-            logger.info("Successfully sent feedback submission notification", 
-                       extra={"request_id": submission_id})
-        except Exception as e:
-            logger.error(f"Failed to send feedback submission notification: {str(e)}", 
-                        extra={"request_id": submission_id},
-                        exc_info=True)
-            email_errors.append("feedback_submitted")
-
-        try:
-            logger.info(f"Sending analysis completion notification to {requestor.email}", 
-                       extra={"request_id": submission_id})
-            send_analysis_completed_notification(
-                requestor.email,
-                feedback_request.topic,
-                feedback_url,
-                submission_id
-            )
-            logger.info("Successfully sent analysis completion notification", 
-                       extra={"request_id": submission_id})
-        except Exception as e:
-            logger.error(f"Failed to send analysis completion notification: {str(e)}", 
-                        extra={"request_id": submission_id},
-                        exc_info=True)
-            email_errors.append("analysis_completed")
-        
-        db.session.commit()
-        logger.info(f"Successfully submitted feedback for request {request_id}", 
-                   extra={"request_id": submission_id})
-        
-        if email_errors:
-            return jsonify({
-                "status": "partial_success",
-                "message": "Feedback submitted but some notifications failed to send"
-            })
-            
-        return jsonify({"status": "success"})
-        
-    except Exception as e:
-        logger.error(f"Error submitting feedback: {str(e)}", 
-                    extra={"request_id": submission_id},
-                    exc_info=True)
-        db.session.rollback()
-        return jsonify({"status": "error", "message": str(e)}), 500
 
 @main.route('/test/email')
 @login_required

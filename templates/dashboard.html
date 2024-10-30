@@ -49,7 +49,7 @@
                             <h6 class="mb-1">{{ provider.feedback_request.topic }}</h6>
                             <small>{{ provider.invitation_sent.strftime('%Y-%m-%d') }}</small>
                         </div>
-                        <small class="text-muted">From: {{ provider.feedback_request.requestor.username }}</small>
+                        <small class="text-muted">From: {{ provider.provider_email }}</small>
                     </a>
                     {% endfor %}
                 </div>
