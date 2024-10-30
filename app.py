@@ -1,10 +1,11 @@
 import os
 import logging
-from flask import Flask, render_template
+from flask import Flask, render_template, current_app
 from flask_sqlalchemy import SQLAlchemy
 from flask_login import LoginManager
 from flask_mail import Mail
 from sqlalchemy.orm import DeclarativeBase
+from sqlalchemy import text
 
 # Configure logging
 logging.basicConfig(level=logging.DEBUG)
@@ -15,6 +16,23 @@ class Base(DeclarativeBase):
 
 db = SQLAlchemy(model_class=Base)
 login_manager = LoginManager()
+
+def migrate_database():
+    with current_app.app_context():
+        # Check if columns exist
+        inspector = db.inspect(db.engine)
+        columns = {col['name'] for col in inspector.get_columns('feedback_provider')}
+        
+        if 'access_token' not in columns or 'token_expiry' not in columns:
+            logger.info("Adding missing columns to feedback_provider table")
+            # Add missing columns
+            with db.engine.connect() as conn:
+                if 'access_token' not in columns:
+                    conn.execute(text('ALTER TABLE feedback_provider ADD COLUMN access_token VARCHAR(100)'))
+                if 'token_expiry' not in columns:
+                    conn.execute(text('ALTER TABLE feedback_provider ADD COLUMN token_expiry TIMESTAMP'))
+                conn.commit()
+            logger.info("Successfully added missing columns")
 
 def create_app():
     app = Flask(__name__)
@@ -76,6 +94,9 @@ def create_app():
             # Create tables that don't exist
             logger.info("Creating missing database tables")
             db.create_all()
+            
+            # Run database migrations
+            migrate_database()
             
             # Log newly created tables
             new_tables = set(inspector.get_table_names()) - set(existing_tables)
