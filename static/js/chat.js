@@ -52,18 +52,22 @@ document.addEventListener('DOMContentLoaded', function() {
                 })
             });
             
+            if (!response.ok) {
+                throw new Error('Network response was not ok');
+            }
+            
             const data = await response.json();
             
             if (data.status === 'success') {
                 appendMessage('ai', data.response);
             } else {
-                appendMessage('ai', data.message || 'Sorry, I encountered an error. Please try again.');
                 showError(data.message || 'Failed to get response from AI assistant');
+                appendMessage('ai', 'I apologize, but I encountered an error. Please try again.');
             }
         } catch (error) {
             console.error('Error:', error);
-            appendMessage('ai', 'Sorry, I encountered an error. Please try again.');
-            showError('Network error occurred. Please check your connection and try again.');
+            showError('Network error occurred. Please try again.');
+            appendMessage('ai', 'Sorry, I encountered a network error. Please try again.');
         }
     });
     
