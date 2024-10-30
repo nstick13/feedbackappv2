@@ -10,57 +10,45 @@
             </div>
             <div class="card-body">
                 {% if is_provider %}
-                <div id="feedbackForm">
-                    <div class="mb-4">
-                        <p class="lead" id="introduction">
-                            {{ feedback_request.ai_context.introduction }}
-                        </p>
-                    </div>
-                    
-                    <div id="questions">
-                        {% for question in feedback_request.ai_context.questions %}
-                        <div class="mb-3">
-                            <label class="form-label">{{ question }}</label>
-                            <textarea class="form-control feedback-response" rows="3"></textarea>
+                    {% if chat_enabled %}
+                        <div class="alert alert-info mb-4">
+                            <h5 class="alert-heading">Welcome to the AI-guided feedback session!</h5>
+                            <p>Please engage with our AI assistant to provide your feedback. The assistant will guide you through the process and help you structure your thoughts.</p>
+                        </div>
+                        {{ render_chat_interface() }}
+                    {% else %}
+                        <div class="alert alert-warning">
+                            This feedback session has been completed.
+                        </div>
+                    {% endif %}
+                {% else %}
+                    <div id="feedbackResults">
+                        {% for session in feedback_request.feedback_sessions %}
+                        <div class="feedback-entry mb-4">
+                            <h5>Feedback from {{ session.provider.username }}</h5>
+                            <div class="feedback-content">
+                                {{ session.content.feedback }}
+                            </div>
+                            {% if session.content.analysis %}
+                            <div class="analysis mt-3">
+                                <h6>AI Analysis</h6>
+                                <ul>
+                                    {% for theme in session.content.analysis.themes %}
+                                    <li>{{ theme }}</li>
+                                    {% endfor %}
+                                </ul>
+                            </div>
+                            {% endif %}
                         </div>
                         {% endfor %}
-                    </div>
-                    
-                    <div class="mb-4">
-                        <p class="text-muted" id="closing">
-                            {{ feedback_request.ai_context.closing }}
-                        </p>
-                    </div>
-                    
-                    <button class="btn btn-primary" id="submitFeedback">
-                        Submit Feedback
-                    </button>
-                </div>
-                {% else %}
-                <div id="feedbackResults">
-                    {% for session in feedback_request.feedback_sessions %}
-                    <div class="feedback-entry mb-4">
-                        <h5>Feedback from {{ session.provider.username }}</h5>
-                        <div class="feedback-content">
-                            {{ session.content.feedback }}
-                        </div>
-                        {% if session.content.analysis %}
-                        <div class="analysis mt-3">
-                            <h6>AI Analysis</h6>
-                            <ul>
-                                {% for theme in session.content.analysis.themes %}
-                                <li>{{ theme }}</li>
-                                {% endfor %}
-                            </ul>
+                        
+                        {% if not feedback_request.feedback_sessions %}
+                        <div class="alert alert-info">
+                            No feedback has been submitted yet. Please wait for the providers to complete their feedback.
                         </div>
                         {% endif %}
                     </div>
-                    {% endfor %}
-                </div>
                 {% endif %}
-                
-                <!-- Add chat interface -->
-                {{ render_chat_interface() }}
             </div>
         </div>
     </div>
@@ -68,6 +56,5 @@
 {% endblock %}
 
 {% block scripts %}
-<script src="{{ url_for('static', filename='js/feedback.js') }}"></script>
 <script src="{{ url_for('static', filename='js/chat.js') }}"></script>
 {% endblock %}
