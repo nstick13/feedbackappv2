@@ -53,8 +53,10 @@ def create_feedback_request():
         
         if not topic:
             raise ValueError("Topic is required")
-            
+        
         logger.debug(f"Creating feedback request for topic: {topic}", extra={"request_id": request_id})
+        logger.debug(f"Using SMTP username: {current_app.config['MAIL_USERNAME']}", 
+                    extra={"request_id": request_id})
         
         # Generate AI prompts
         prompts = generate_feedback_prompts(topic)
@@ -87,23 +89,42 @@ def create_feedback_request():
                         request_id=feedback_request.id,
                         _external=True
                     )
-                    logger.debug(f"Generated feedback URL for {email}: {feedback_url}", 
-                               extra={"request_id": request_id})
+                    logger.debug(
+                        f"Email context for {email}:\n"
+                        f"- Subject: Feedback Request from {current_user.username}\n"
+                        f"- Topic: {topic}\n"
+                        f"- URL: {feedback_url}",
+                        extra={"request_id": request_id}
+                    )
                     
                     # Send email invitation
                     logger.info(f"Sending feedback invitation to {email}", extra={"request_id": request_id})
-                    send_feedback_invitation(
-                        email,
-                        current_user.username,
-                        topic,
-                        feedback_url,
-                        request_id
-                    )
-                    logger.info(f"Successfully sent invitation email to {email}", 
-                              extra={"request_id": request_id})
+                    try:
+                        send_feedback_invitation(
+                            email,
+                            current_user.username,
+                            topic,
+                            feedback_url,
+                            request_id
+                        )
+                        logger.info(f"Successfully sent invitation email to {email}", 
+                                  extra={"request_id": request_id})
+                    except Exception as email_error:
+                        logger.error(
+                            f"Failed to send invitation email to {email}. "
+                            f"Error: {str(email_error)}\n"
+                            f"Stack trace: {email_error.__traceback__}",
+                            extra={"request_id": request_id},
+                            exc_info=True
+                        )
+                        email_errors.append(email)
                 except Exception as e:
-                    logger.error(f"Failed to send invitation email to {email}: {str(e)}", 
-                               extra={"request_id": request_id})
+                    logger.error(
+                        f"Error preparing email for {email}: {str(e)}\n"
+                        f"Stack trace: {e.__traceback__}",
+                        extra={"request_id": request_id},
+                        exc_info=True
+                    )
                     email_errors.append(email)
         
         db.session.commit()
@@ -120,7 +141,9 @@ def create_feedback_request():
         return jsonify({"status": "success", "request_id": feedback_request.id})
         
     except Exception as e:
-        logger.error(f"Error creating feedback request: {str(e)}", extra={"request_id": request_id})
+        logger.error(f"Error creating feedback request: {str(e)}", 
+                    extra={"request_id": request_id},
+                    exc_info=True)
         db.session.rollback()
         return jsonify({"status": "error", "message": str(e)}), 500
 
@@ -212,7 +235,8 @@ def submit_feedback(request_id):
                        extra={"request_id": submission_id})
         except Exception as e:
             logger.error(f"Failed to send feedback submission notification: {str(e)}", 
-                        extra={"request_id": submission_id})
+                        extra={"request_id": submission_id},
+                        exc_info=True)
             email_errors.append("feedback_submitted")
 
         try:
@@ -228,7 +252,8 @@ def submit_feedback(request_id):
                        extra={"request_id": submission_id})
         except Exception as e:
             logger.error(f"Failed to send analysis completion notification: {str(e)}", 
-                        extra={"request_id": submission_id})
+                        extra={"request_id": submission_id},
+                        exc_info=True)
             email_errors.append("analysis_completed")
         
         db.session.commit()
@@ -244,6 +269,8 @@ def submit_feedback(request_id):
         return jsonify({"status": "success"})
         
     except Exception as e:
-        logger.error(f"Error submitting feedback: {str(e)}", extra={"request_id": submission_id})
+        logger.error(f"Error submitting feedback: {str(e)}", 
+                    extra={"request_id": submission_id},
+                    exc_info=True)
         db.session.rollback()
         return jsonify({"status": "error", "message": str(e)}), 500

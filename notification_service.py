@@ -12,9 +12,8 @@ from queue import Queue
 import threading
 from datetime import datetime
 
-# Configure logging with more detailed format
 logging.basicConfig(
-    level=logging.INFO,
+    level=logging.DEBUG,
     format='%(asctime)s - %(name)s - [%(request_id)s] - %(levelname)s - %(message)s'
 )
 logger = logging.getLogger(__name__)
@@ -29,8 +28,8 @@ class EmailMessage:
 
 class EmailNotificationService:
     MAX_RETRIES = 3
-    RETRY_DELAY = 5  # seconds
-    SMTP_TIMEOUT = 30  # seconds
+    RETRY_DELAY = 5
+    SMTP_TIMEOUT = 30
     
     def __init__(self):
         self.email_queue: Queue[EmailMessage] = Queue()
@@ -38,14 +37,13 @@ class EmailNotificationService:
         self.worker_thread.start()
         logger.info("Email notification service initialized", extra={"request_id": "INIT"})
         
-        # Test SMTP connection on startup
         self._test_smtp_connection()
 
     def _test_smtp_connection(self) -> bool:
-        """Test SMTP connection and configuration on startup"""
         try:
             logger.info("Testing SMTP connection...", extra={"request_id": "INIT"})
             with self._create_smtp_connection() as server:
+                server.noop()
                 logger.info("SMTP connection test successful", extra={"request_id": "INIT"})
                 return True
         except Exception as e:
@@ -53,26 +51,39 @@ class EmailNotificationService:
             return False
 
     def _create_smtp_connection(self) -> smtplib.SMTP:
-        """Create and configure SMTP connection with proper error handling"""
         try:
-            # Create SMTP connection with timeout
+            smtp_settings = {
+                "server": current_app.config['MAIL_SERVER'],
+                "port": current_app.config['MAIL_PORT'],
+                "use_tls": current_app.config['MAIL_USE_TLS'],
+                "timeout": self.SMTP_TIMEOUT
+            }
+            logger.debug(f"SMTP Settings: {smtp_settings}", extra={"request_id": "CONN"})
+            
             logger.debug("Initiating SMTP connection...", extra={"request_id": "CONN"})
             server = smtplib.SMTP(
-                current_app.config['MAIL_SERVER'],
-                current_app.config['MAIL_PORT'],
-                timeout=self.SMTP_TIMEOUT
+                smtp_settings["server"],
+                smtp_settings["port"],
+                timeout=smtp_settings["timeout"]
             )
+            
             server.set_debuglevel(1)
-            logger.debug(f"Connected to SMTP server: {current_app.config['MAIL_SERVER']}:{current_app.config['MAIL_PORT']}", 
+            logger.debug(f"Connected to SMTP server: {smtp_settings['server']}:{smtp_settings['port']}", 
                         extra={"request_id": "CONN"})
 
-            # Configure TLS
-            if current_app.config['MAIL_USE_TLS']:
+            try:
+                server.ehlo_or_helo_if_needed()
+                logger.debug("Initial EHLO/HELO successful", extra={"request_id": "CONN"})
+            except smtplib.SMTPHeloError as e:
+                logger.error(f"EHLO/HELO failed: {str(e)}", extra={"request_id": "CONN"})
+                raise
+
+            if smtp_settings["use_tls"]:
                 logger.debug("Initiating TLS connection", extra={"request_id": "CONN"})
                 server.starttls()
+                server.ehlo()
                 logger.debug("TLS connection established successfully", extra={"request_id": "CONN"})
 
-            # Authenticate
             username = current_app.config['MAIL_USERNAME']
             password = current_app.config['MAIL_PASSWORD']
             
@@ -82,6 +93,9 @@ class EmailNotificationService:
             logger.debug(f"Attempting authentication for user: {username}", extra={"request_id": "CONN"})
             server.login(username, password)
             logger.debug("SMTP authentication successful", extra={"request_id": "CONN"})
+
+            server.noop()
+            logger.debug("Connection verified with NOOP command", extra={"request_id": "CONN"})
 
             return server
             
@@ -96,20 +110,19 @@ class EmailNotificationService:
             raise
 
     def send_email(self, message: EmailMessage) -> bool:
-        """Send email with proper error handling and logging"""
         try:
             logger.info(f"Preparing to send email: {message.subject} to {message.recipients}", 
                        extra={"request_id": message.request_id})
             
-            logger.debug("Creating email message", extra={"request_id": message.request_id})
+            logger.debug(f"Email content preview (first 200 chars): {message.html_content[:200]}...", 
+                        extra={"request_id": message.request_id})
+            
             with self._create_smtp_connection() as server:
-                # Create message
                 msg = MIMEMultipart('alternative')
                 msg['Subject'] = message.subject
                 msg['From'] = current_app.config['MAIL_USERNAME']
                 msg['To'] = ', '.join(message.recipients)
                 
-                # Add HTML content with proper formatting
                 html_part = MIMEText(
                     f"""
                     <!DOCTYPE html>
@@ -124,9 +137,9 @@ class EmailNotificationService:
                 msg.attach(html_part)
                 logger.debug("Email message prepared successfully", extra={"request_id": message.request_id})
 
-                # Send email
                 logger.debug("Attempting to send email", extra={"request_id": message.request_id})
-                server.send_message(msg)
+                response = server.send_message(msg)
+                logger.debug(f"SMTP server response: {response}", extra={"request_id": message.request_id})
                 logger.info(f"Email sent successfully: {message.subject} to {message.recipients}", 
                           extra={"request_id": message.request_id})
                 return True
@@ -150,27 +163,33 @@ class EmailNotificationService:
             logger.debug("Email sending operation completed", extra={"request_id": message.request_id})
 
     def queue_email(self, message: EmailMessage):
-        """Add email to the queue for processing"""
         try:
             logger.info(f"Queueing email: {message.subject} for {message.recipients}", 
                        extra={"request_id": message.request_id})
             self.email_queue.put(message)
+            logger.debug(f"Current queue size: {self.email_queue.qsize()}", 
+                        extra={"request_id": message.request_id})
         except Exception as e:
             logger.error(f"Error queueing email: {str(e)}", extra={"request_id": message.request_id})
 
     def _process_email_queue(self):
-        """Process emails in the queue with retry logic"""
         while True:
             try:
                 if not self.email_queue.empty():
                     message = self.email_queue.get()
+                    logger.debug(f"Processing email from queue: {message.subject}", 
+                               extra={"request_id": message.request_id})
                     retry_count = 0
                     
                     while retry_count < self.MAX_RETRIES:
                         try:
-                            logger.debug(f"Processing queued email (attempt {retry_count + 1}/{self.MAX_RETRIES})", 
-                                       extra={"request_id": message.request_id})
+                            logger.debug(
+                                f"Processing queued email (attempt {retry_count + 1}/{self.MAX_RETRIES})", 
+                                extra={"request_id": message.request_id}
+                            )
                             if self.send_email(message):
+                                logger.debug("Email sent successfully from queue", 
+                                           extra={"request_id": message.request_id})
                                 break
                             
                             retry_count += 1
@@ -180,7 +199,7 @@ class EmailNotificationService:
                                     f"Attempt {retry_count + 1}/{self.MAX_RETRIES}",
                                     extra={"request_id": message.request_id}
                                 )
-                                time.sleep(self.RETRY_DELAY * (2 ** retry_count))  # Exponential backoff
+                                time.sleep(self.RETRY_DELAY * (2 ** retry_count))
                             else:
                                 logger.error(
                                     f"Failed to send email {message.subject} to {message.recipients} "
@@ -189,24 +208,27 @@ class EmailNotificationService:
                                 )
                         except Exception as e:
                             logger.error(f"Error in send attempt {retry_count + 1}: {str(e)}", 
-                                       extra={"request_id": message.request_id})
+                                       extra={"request_id": message.request_id},
+                                       exc_info=True)
                             retry_count += 1
                             if retry_count < self.MAX_RETRIES:
                                 time.sleep(self.RETRY_DELAY * (2 ** retry_count))
                     
                     self.email_queue.task_done()
+                    logger.debug(f"Queue task completed. Remaining tasks: {self.email_queue.qsize()}", 
+                               extra={"request_id": message.request_id})
                 else:
-                    time.sleep(1)  # Prevent busy-waiting
+                    time.sleep(1)
                     
             except Exception as e:
-                logger.error(f"Error in email queue processing: {str(e)}", extra={"request_id": "QUEUE"})
+                logger.error(f"Error in email queue processing: {str(e)}", 
+                           extra={"request_id": "QUEUE"},
+                           exc_info=True)
                 time.sleep(self.RETRY_DELAY)
 
-# Initialize the notification service
 email_service = EmailNotificationService()
 
 def send_feedback_invitation(recipient_email: str, requestor_name: str, topic: str, feedback_url: str, request_id: str):
-    """Send feedback invitation email with proper error handling"""
     try:
         logger.info(f"Preparing feedback invitation email for {recipient_email}", extra={"request_id": request_id})
         
@@ -246,7 +268,6 @@ def send_feedback_invitation(recipient_email: str, requestor_name: str, topic: s
         raise
 
 def send_feedback_submitted_notification(recipient_email: str, provider_name: str, topic: str, feedback_url: str, request_id: str):
-    """Send feedback submission notification email with proper error handling"""
     try:
         logger.info(f"Preparing feedback submission notification for {recipient_email}", extra={"request_id": request_id})
         
@@ -286,7 +307,6 @@ def send_feedback_submitted_notification(recipient_email: str, provider_name: st
         raise
 
 def send_analysis_completed_notification(recipient_email: str, topic: str, feedback_url: str, request_id: str):
-    """Send analysis completion notification email with proper error handling"""
     try:
         logger.info(f"Preparing analysis completion notification for {recipient_email}", 
                    extra={"request_id": request_id})
