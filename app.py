@@ -1,9 +1,14 @@
 import os
-from flask import Flask
+import logging
+from flask import Flask, render_template
 from flask_sqlalchemy import SQLAlchemy
 from flask_login import LoginManager
 from flask_mail import Mail
 from sqlalchemy.orm import DeclarativeBase
+
+# Configure logging
+logging.basicConfig(level=logging.DEBUG)
+logger = logging.getLogger(__name__)
 
 class Base(DeclarativeBase):
     pass
@@ -16,7 +21,10 @@ def create_app():
     app = Flask(__name__)
     
     # Configuration
-    app.secret_key = os.environ.get("FLASK_SECRET_KEY") or "a secret key"
+    app.secret_key = os.environ.get("FLASK_SECRET_KEY", "dev_key_only_for_development")
+    if not app.secret_key:
+        logger.error("No Flask secret key set!")
+        
     app.config["SQLALCHEMY_DATABASE_URI"] = os.environ.get("DATABASE_URL")
     app.config["SQLALCHEMY_ENGINE_OPTIONS"] = {
         "pool_recycle": 300,
@@ -41,14 +49,33 @@ def create_app():
         from models import User
         return User.query.get(int(user_id))
     
-    with app.app_context():
-        import models
-        db.create_all()
+    # Error handlers
+    @app.errorhandler(404)
+    def not_found_error(error):
+        logger.error(f"Page not found: {error}")
+        return render_template('error.html', error=error), 404
+
+    @app.errorhandler(500)
+    def internal_error(error):
+        logger.error(f"Server error: {error}")
+        db.session.rollback()
+        return render_template('error.html', error=error), 500
         
-        # Register blueprints
-        from routes import main
-        from google_auth import google_auth
-        app.register_blueprint(main)
-        app.register_blueprint(google_auth)
+    with app.app_context():
+        try:
+            import models
+            db.create_all()
+            logger.info("Database tables created successfully")
+            
+            # Register blueprints
+            from routes import main
+            from google_auth import google_auth
+            app.register_blueprint(main)
+            app.register_blueprint(google_auth)
+            logger.info("Blueprints registered successfully")
+            
+        except Exception as e:
+            logger.error(f"Error during app initialization: {str(e)}")
+            raise
         
     return app
