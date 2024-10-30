@@ -36,98 +36,13 @@ def dashboard():
         logger.debug(f"Fetching dashboard data for user {current_user.id}", extra={"request_id": request_id})
         my_requests = FeedbackRequest.query.filter_by(requestor_id=current_user.id).all()
         pending_feedback = FeedbackProvider.query.filter_by(
-            provider_id=current_user.id,
+            provider_email=current_user.email,
             status='invited'
         ).all()
         return render_template('dashboard.html', requests=my_requests, pending=pending_feedback)
     except Exception as e:
         logger.error(f"Error rendering dashboard: {str(e)}", extra={"request_id": request_id})
         return render_template('error.html', error=str(e)), 500
-
-@main.route('/feedback/request', methods=['POST'])
-@login_required
-def create_feedback_request():
-    request_id = str(uuid.uuid4())
-    try:
-        data = request.get_json()
-        topic = data.get('topic')
-        provider_emails = data.get('providers', [])
-        
-        if not topic:
-            raise ValueError("Topic is required")
-        
-        logger.debug(f"Creating feedback request for topic: {topic}", extra={"request_id": request_id})
-        
-        prompts = generate_feedback_prompts(topic)
-        
-        feedback_request = FeedbackRequest(
-            topic=topic,
-            requestor_id=current_user.id,
-            ai_context=prompts
-        )
-        db.session.add(feedback_request)
-        db.session.flush()
-        
-        email_errors = []
-        for email in provider_emails:
-            logger.debug(f"Processing provider email: {email}", extra={"request_id": request_id})
-            
-            try:
-                invitation_sent_time = datetime.utcnow()
-                provider = FeedbackProvider(
-                    feedback_request_id=feedback_request.id,
-                    provider_email=email,
-                    invitation_sent=invitation_sent_time
-                )
-                db.session.add(provider)
-                
-                feedback_url = url_for(
-                    'main.feedback_session',
-                    request_id=feedback_request.id,
-                    _external=True
-                )
-                
-                try:
-                    send_feedback_invitation(
-                        email,
-                        current_user.username,
-                        topic,
-                        feedback_url,
-                        request_id
-                    )
-                except Exception as email_error:
-                    logger.error(
-                        f"Failed to send invitation email to {email}\n"
-                        f"Error: {str(email_error)}",
-                        extra={"request_id": request_id},
-                        exc_info=True
-                    )
-                    email_errors.append(email)
-            except Exception as e:
-                logger.error(
-                    f"Error processing provider {email}: {str(e)}",
-                    extra={"request_id": request_id},
-                    exc_info=True
-                )
-                email_errors.append(email)
-        
-        db.session.commit()
-        
-        if email_errors:
-            return jsonify({
-                "status": "partial_success",
-                "request_id": feedback_request.id,
-                "message": f"Request created but failed to send emails to: {', '.join(email_errors)}"
-            })
-            
-        return jsonify({"status": "success", "request_id": feedback_request.id})
-        
-    except Exception as e:
-        logger.error(f"Error creating feedback request: {str(e)}", 
-                    extra={"request_id": request_id},
-                    exc_info=True)
-        db.session.rollback()
-        return jsonify({"status": "error", "message": str(e)}), 500
 
 @main.route('/feedback/session/<int:request_id>')
 @login_required
@@ -154,8 +69,21 @@ def feedback_session(request_id):
             )
             return render_template('error.html', error="Unauthorized access"), 403
         
-        # Only allow providers to use the chat interface
+        # Load providers and their feedback status for requestor view
         if is_requestor:
+            providers = FeedbackProvider.query.filter_by(
+                feedback_request_id=request_id
+            ).all()
+            
+            # Load feedback sessions for completed feedback
+            for p in providers:
+                p.feedback_session = FeedbackSession.query.filter_by(
+                    feedback_request_id=request_id,
+                    provider_id=p.provider_id
+                ).first()
+            
+            feedback_request.providers = providers
+            
             return render_template(
                 'feedback_session.html',
                 feedback_request=feedback_request,
@@ -163,6 +91,7 @@ def feedback_session(request_id):
                 chat_enabled=False
             )
         
+        # Provider view with chat interface
         return render_template(
             'feedback_session.html',
             feedback_request=feedback_request,
@@ -174,6 +103,57 @@ def feedback_session(request_id):
                     extra={"request_id": session_id},
                     exc_info=True)
         return render_template('error.html', error=str(e)), 500
+
+@main.route('/feedback/remind/<int:provider_id>', methods=['POST'])
+@login_required
+def send_reminder(provider_id):
+    request_id = str(uuid.uuid4())
+    try:
+        provider = FeedbackProvider.query.get_or_404(provider_id)
+        feedback_request = FeedbackRequest.query.get(provider.feedback_request_id)
+        
+        # Verify the current user is the requestor
+        if feedback_request.requestor_id != current_user.id:
+            logger.warning(
+                f"Unauthorized reminder attempt for provider {provider_id}", 
+                extra={"request_id": request_id}
+            )
+            return jsonify({
+                "status": "error",
+                "message": "Unauthorized access"
+            }), 403
+        
+        # Send reminder email
+        feedback_url = url_for(
+            'main.feedback_session',
+            request_id=feedback_request.id,
+            _external=True
+        )
+        
+        send_feedback_invitation(
+            provider.provider_email,
+            current_user.username,
+            feedback_request.topic,
+            feedback_url,
+            request_id
+        )
+        
+        provider.invitation_sent = datetime.utcnow()
+        db.session.commit()
+        
+        return jsonify({
+            "status": "success",
+            "message": "Reminder sent successfully"
+        })
+        
+    except Exception as e:
+        logger.error(f"Error sending reminder: {str(e)}", 
+                    extra={"request_id": request_id},
+                    exc_info=True)
+        return jsonify({
+            "status": "error",
+            "message": str(e)
+        }), 500
 
 @main.route('/chat/message', methods=['POST'])
 @login_required
