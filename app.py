@@ -65,9 +65,17 @@ def create_app():
         
     with app.app_context():
         try:
+            logger.info("Starting database initialization")
             import models
+            
+            # Drop all existing tables
+            logger.info("Dropping existing database tables")
+            db.drop_all()
+            
+            # Create all tables with new schema
+            logger.info("Creating database tables with updated schema")
             db.create_all()
-            logger.info("Database tables created successfully")
+            logger.info("Database tables recreated successfully")
             
             # Register blueprints
             from routes import main
