@@ -3,6 +3,11 @@ document.addEventListener('DOMContentLoaded', function() {
     const chatForm = document.getElementById('chatForm');
     const messageInput = document.getElementById('messageInput');
     const toggleChat = document.getElementById('toggleChat');
+    const errorContainer = document.createElement('div');
+    
+    // Set up error container
+    errorContainer.className = 'alert alert-danger d-none mb-3';
+    chatMessages.parentElement.insertBefore(errorContainer, chatMessages);
     
     // Initialize with a welcome message
     appendMessage('ai', 'Hello! I\'m your AI feedback assistant. How can I help you with the feedback process?');
@@ -33,6 +38,7 @@ document.addEventListener('DOMContentLoaded', function() {
         // Display user message
         appendMessage('user', message);
         messageInput.value = '';
+        hideError();
         
         try {
             const response = await fetch('/chat/message', {
@@ -51,11 +57,13 @@ document.addEventListener('DOMContentLoaded', function() {
             if (data.status === 'success') {
                 appendMessage('ai', data.response);
             } else {
-                appendMessage('ai', 'Sorry, I encountered an error. Please try again.');
+                appendMessage('ai', data.message || 'Sorry, I encountered an error. Please try again.');
+                showError(data.message || 'Failed to get response from AI assistant');
             }
         } catch (error) {
             console.error('Error:', error);
             appendMessage('ai', 'Sorry, I encountered an error. Please try again.');
+            showError('Network error occurred. Please check your connection and try again.');
         }
     });
     
@@ -66,6 +74,17 @@ document.addEventListener('DOMContentLoaded', function() {
         messageDiv.textContent = content;
         chatMessages.appendChild(messageDiv);
         chatMessages.scrollTop = chatMessages.scrollHeight;
+    }
+    
+    // Helper function to show error
+    function showError(message) {
+        errorContainer.textContent = message;
+        errorContainer.classList.remove('d-none');
+    }
+    
+    // Helper function to hide error
+    function hideError() {
+        errorContainer.classList.add('d-none');
     }
     
     // Helper function to get request ID from URL
