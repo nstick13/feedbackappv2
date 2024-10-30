@@ -1,0 +1,68 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="row">
+    <div class="col-md-8 mx-auto">
+        <div class="card">
+            <div class="card-header">
+                <h4 class="card-title mb-0">{{ feedback_request.topic }}</h4>
+            </div>
+            <div class="card-body">
+                {% if is_provider %}
+                <div id="feedbackForm">
+                    <div class="mb-4">
+                        <p class="lead" id="introduction">
+                            {{ feedback_request.ai_context.introduction }}
+                        </p>
+                    </div>
+                    
+                    <div id="questions">
+                        {% for question in feedback_request.ai_context.questions %}
+                        <div class="mb-3">
+                            <label class="form-label">{{ question }}</label>
+                            <textarea class="form-control feedback-response" rows="3"></textarea>
+                        </div>
+                        {% endfor %}
+                    </div>
+                    
+                    <div class="mb-4">
+                        <p class="text-muted" id="closing">
+                            {{ feedback_request.ai_context.closing }}
+                        </p>
+                    </div>
+                    
+                    <button class="btn btn-primary" id="submitFeedback">
+                        Submit Feedback
+                    </button>
+                </div>
+                {% else %}
+                <div id="feedbackResults">
+                    {% for session in feedback_request.feedback_sessions %}
+                    <div class="feedback-entry mb-4">
+                        <h5>Feedback from {{ session.provider.username }}</h5>
+                        <div class="feedback-content">
+                            {{ session.content.feedback }}
+                        </div>
+                        {% if session.content.analysis %}
+                        <div class="analysis mt-3">
+                            <h6>AI Analysis</h6>
+                            <ul>
+                                {% for theme in session.content.analysis.themes %}
+                                <li>{{ theme }}</li>
+                                {% endfor %}
+                            </ul>
+                        </div>
+                        {% endif %}
+                    </div>
+                    {% endfor %}
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ url_for('static', filename='js/feedback.js') }}"></script>
+{% endblock %}

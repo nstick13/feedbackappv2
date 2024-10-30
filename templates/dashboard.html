@@ -1,0 +1,92 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="row mb-4">
+    <div class="col">
+        <h2>Dashboard</h2>
+    </div>
+    <div class="col text-end">
+        <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#newFeedbackModal">
+            Request New Feedback
+        </button>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-md-6">
+        <div class="card mb-4">
+            <div class="card-header">
+                <h5 class="card-title mb-0">My Feedback Requests</h5>
+            </div>
+            <div class="card-body">
+                <div class="list-group" id="myRequests">
+                    {% for request in requests %}
+                    <a href="{{ url_for('main.feedback_session', request_id=request.id) }}" 
+                       class="list-group-item list-group-item-action">
+                        <div class="d-flex w-100 justify-content-between">
+                            <h6 class="mb-1">{{ request.topic }}</h6>
+                            <small>{{ request.created_at.strftime('%Y-%m-%d') }}</small>
+                        </div>
+                        <small class="text-muted">Status: {{ request.status }}</small>
+                    </a>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="card-title mb-0">Pending Feedback Requests</h5>
+            </div>
+            <div class="card-body">
+                <div class="list-group" id="pendingFeedback">
+                    {% for provider in pending %}
+                    <a href="{{ url_for('main.feedback_session', request_id=provider.feedback_request_id) }}"
+                       class="list-group-item list-group-item-action">
+                        <div class="d-flex w-100 justify-content-between">
+                            <h6 class="mb-1">{{ provider.feedback_request.topic }}</h6>
+                            <small>{{ provider.invitation_sent.strftime('%Y-%m-%d') }}</small>
+                        </div>
+                        <small class="text-muted">From: {{ provider.feedback_request.requestor.username }}</small>
+                    </a>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- New Feedback Request Modal -->
+<div class="modal fade" id="newFeedbackModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Request New Feedback</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="feedbackRequestForm">
+                    <div class="mb-3">
+                        <label for="topic" class="form-label">Topic/Area for Feedback</label>
+                        <input type="text" class="form-control" id="topic" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="providers" class="form-label">Provider Emails (one per line)</label>
+                        <textarea class="form-control" id="providers" rows="3" required></textarea>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                <button type="button" class="btn btn-primary" id="submitRequest">Request Feedback</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ url_for('static', filename='js/dashboard.js') }}"></script>
+{% endblock %}
