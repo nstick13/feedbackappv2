@@ -24,6 +24,8 @@ class FeedbackProvider(db.Model):
     provider_email = db.Column(db.String(120), nullable=False)
     status = db.Column(db.String(20), default='invited')
     invitation_sent = db.Column(db.DateTime)
+    access_token = db.Column(db.String(100), unique=True)
+    token_expiry = db.Column(db.DateTime)
 
 class FeedbackSession(db.Model):
     id = db.Column(db.Integer, primary_key=True)
