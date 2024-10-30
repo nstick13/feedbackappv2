@@ -240,12 +240,18 @@ def test_email():
 @login_required
 def chat_message():
     request_id = str(uuid.uuid4())
+    logger.debug(f"Received chat message request", extra={"request_id": request_id})
+    
     try:
         data = request.get_json()
         user_message = data.get('message')
         feedback_request_id = data.get('request_id')
         
+        logger.debug(f"Processing chat message for request ID: {feedback_request_id}", 
+                    extra={"request_id": request_id})
+        
         if not user_message or not feedback_request_id:
+            logger.error(f"Missing required parameters", extra={"request_id": request_id})
             return jsonify({
                 "status": "error",
                 "message": "Missing required parameters"
@@ -259,6 +265,9 @@ def chat_message():
             "user_role": "requestor" if feedback_request.requestor_id == current_user.id else "provider"
         }
         
+        logger.debug(f"Generating AI response for user role: {context['user_role']}", 
+                    extra={"request_id": request_id})
+        
         try:
             response = openai_client.chat.completions.create(
                 model="gpt-4",
@@ -269,6 +278,7 @@ def chat_message():
             )
             
             ai_response = response.choices[0].message.content
+            logger.debug(f"Successfully generated AI response", extra={"request_id": request_id})
             
             return jsonify({
                 "status": "success",
@@ -277,7 +287,8 @@ def chat_message():
             
         except Exception as e:
             logger.error(f"Error generating AI response: {str(e)}", 
-                        extra={"request_id": request_id})
+                        extra={"request_id": request_id},
+                        exc_info=True)
             return jsonify({
                 "status": "error",
                 "message": "Failed to generate response"
@@ -285,7 +296,8 @@ def chat_message():
             
     except Exception as e:
         logger.error(f"Error in chat message endpoint: {str(e)}", 
-                    extra={"request_id": request_id})
+                    extra={"request_id": request_id},
+                    exc_info=True)
         return jsonify({
             "status": "error",
             "message": str(e)

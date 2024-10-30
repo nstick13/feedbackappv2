@@ -41,7 +41,7 @@ document.addEventListener('DOMContentLoaded', function() {
         hideError();
         
         try {
-            const response = await fetch('/chat/message', {
+            const response = await fetch(window.location.origin + '/chat/message', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json'
