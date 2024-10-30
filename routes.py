@@ -57,14 +57,6 @@ def create_feedback_request():
             raise ValueError("Topic is required")
         
         logger.debug(f"Creating feedback request for topic: {topic}", extra={"request_id": request_id})
-        logger.debug(
-            f"SMTP Configuration Details:\n"
-            f"Server: {current_app.config['MAIL_SERVER']}\n"
-            f"Port: {current_app.config['MAIL_PORT']}\n"
-            f"TLS: {current_app.config['MAIL_USE_TLS']}\n"
-            f"Username: {current_app.config['MAIL_USERNAME']}", 
-            extra={"request_id": request_id}
-        )
         
         prompts = generate_feedback_prompts(topic)
         
@@ -88,30 +80,12 @@ def create_feedback_request():
                     invitation_sent=invitation_sent_time
                 )
                 db.session.add(provider)
-                logger.debug(f"Created provider entry for {email} at {invitation_sent_time}", 
-                           extra={"request_id": request_id})
                 
                 feedback_url = url_for(
                     'main.feedback_session',
                     request_id=feedback_request.id,
                     _external=True
                 )
-                logger.debug(f"Generated feedback URL for {email}: {feedback_url}", 
-                            extra={"request_id": request_id})
-                
-                logger.info(f"Preparing to send feedback invitation to {email}", extra={"request_id": request_id})
-                logger.debug(
-                    f"Email Context Details:\n"
-                    f"From: {current_app.config['MAIL_USERNAME']}\n"
-                    f"To: {email}\n"
-                    f"Subject: Feedback Request from {current_user.username}\n"
-                    f"Topic: {topic}\n"
-                    f"Feedback URL: {feedback_url}\n"
-                    f"Request ID: {request_id}",
-                    extra={"request_id": request_id}
-                )
-                
-                logger.debug("Initiating SMTP connection for sending invitation", extra={"request_id": request_id})
                 
                 try:
                     send_feedback_invitation(
@@ -121,36 +95,23 @@ def create_feedback_request():
                         feedback_url,
                         request_id
                     )
-                    logger.info(
-                        f"Successfully sent invitation email to {email}\n"
-                        f"Time: {datetime.utcnow()}\n"
-                        f"SMTP Status: Success", 
-                        extra={"request_id": request_id}
-                    )
                 except Exception as email_error:
                     logger.error(
                         f"Failed to send invitation email to {email}\n"
-                        f"Error Type: {type(email_error).__name__}\n"
-                        f"Error Message: {str(email_error)}\n"
-                        f"Stack Trace: {email_error.__traceback__}",
+                        f"Error: {str(email_error)}",
                         extra={"request_id": request_id},
                         exc_info=True
                     )
                     email_errors.append(email)
             except Exception as e:
                 logger.error(
-                    f"Error preparing email for {email}\n"
-                    f"Error Type: {type(e).__name__}\n"
-                    f"Error Message: {str(e)}\n"
-                    f"Stack Trace: {e.__traceback__}",
+                    f"Error processing provider {email}: {str(e)}",
                     extra={"request_id": request_id},
                     exc_info=True
                 )
                 email_errors.append(email)
         
         db.session.commit()
-        logger.info(f"Successfully created feedback request {feedback_request.id}", 
-                   extra={"request_id": request_id})
         
         if email_errors:
             return jsonify({
@@ -176,65 +137,43 @@ def feedback_session(request_id):
         logger.debug(f"Accessing feedback session {request_id}", extra={"request_id": session_id})
         feedback_request = FeedbackRequest.query.get_or_404(request_id)
         
-        if feedback_request.requestor_id == current_user.id:
-            return render_template(
-                'feedback_session.html',
-                feedback_request=feedback_request,
-                is_provider=False
-            )
+        # Check if user is the requestor
+        is_requestor = feedback_request.requestor_id == current_user.id
         
+        # Check if user is a provider for this feedback request
         provider = FeedbackProvider.query.filter_by(
             feedback_request_id=request_id,
             provider_email=current_user.email
         ).first()
         
-        if not provider:
-            logger.warning(f"Unauthorized access attempt to feedback session {request_id} by user {current_user.id}", 
-                         extra={"request_id": session_id})
+        # Ensure user has proper access
+        if not (is_requestor or provider):
+            logger.warning(
+                f"Unauthorized access attempt to feedback session {request_id} by user {current_user.id}", 
+                extra={"request_id": session_id}
+            )
             return render_template('error.html', error="Unauthorized access"), 403
-            
+        
+        # Only allow providers to use the chat interface
+        if is_requestor:
+            return render_template(
+                'feedback_session.html',
+                feedback_request=feedback_request,
+                is_provider=False,
+                chat_enabled=False
+            )
+        
         return render_template(
             'feedback_session.html',
             feedback_request=feedback_request,
-            is_provider=True
+            is_provider=True,
+            chat_enabled=True
         )
     except Exception as e:
         logger.error(f"Error accessing feedback session: {str(e)}", 
                     extra={"request_id": session_id},
                     exc_info=True)
         return render_template('error.html', error=str(e)), 500
-
-@main.route('/test/email')
-@login_required
-def test_email():
-    try:
-        test_id = str(uuid.uuid4())
-        logger.info("Testing email functionality", extra={"request_id": test_id})
-        
-        result = send_email(
-            subject="Test Email",
-            recipients=[current_user.email],
-            html_content="""
-            <div style="max-width: 600px; margin: 0 auto; padding: 20px;">
-                <h2>Email System Test</h2>
-                <p>This is a test email to verify the email notification system.</p>
-                <p>If you received this email, the system is working correctly.</p>
-                <p>Time sent: {}</p>
-            </div>
-            """.format(datetime.utcnow()),
-            request_id=test_id
-        )
-        
-        if result:
-            logger.info("Test email sent successfully", extra={"request_id": test_id})
-            return jsonify({"status": "success", "message": "Test email sent successfully"})
-        else:
-            logger.error("Failed to send test email", extra={"request_id": test_id})
-            return jsonify({"status": "error", "message": "Failed to send test email"}), 500
-            
-    except Exception as e:
-        logger.error(f"Error in test email route: {str(e)}", extra={"request_id": test_id}, exc_info=True)
-        return jsonify({"status": "error", "message": str(e)}), 500
 
 @main.route('/chat/message', methods=['POST'])
 @login_required
@@ -247,38 +186,48 @@ def chat_message():
         user_message = data.get('message')
         feedback_request_id = data.get('request_id')
         
-        logger.debug(f"Processing chat message for request ID: {feedback_request_id}", 
-                    extra={"request_id": request_id})
-        
         if not user_message or not feedback_request_id:
             logger.error(f"Missing required parameters", extra={"request_id": request_id})
             return jsonify({
                 "status": "error",
                 "message": "Missing required parameters"
             }), 400
-            
+        
         feedback_request = FeedbackRequest.query.get_or_404(feedback_request_id)
+        
+        # Check if user is authorized to chat
+        provider = FeedbackProvider.query.filter_by(
+            feedback_request_id=feedback_request_id,
+            provider_email=current_user.email
+        ).first()
+        
+        # Only allow providers to use chat
+        if not provider or feedback_request.requestor_id == current_user.id:
+            logger.warning(
+                f"Unauthorized chat attempt for feedback request {feedback_request_id} by user {current_user.id}",
+                extra={"request_id": request_id}
+            )
+            return jsonify({
+                "status": "error",
+                "message": "Unauthorized access"
+            }), 403
         
         context = {
             "topic": feedback_request.topic,
             "ai_context": feedback_request.ai_context,
-            "user_role": "requestor" if feedback_request.requestor_id == current_user.id else "provider"
+            "user_role": "provider"
         }
-        
-        logger.debug(f"Generating AI response for user role: {context['user_role']}", 
-                    extra={"request_id": request_id})
         
         try:
             response = openai_client.chat.completions.create(
                 model="gpt-4",
                 messages=[
-                    {"role": "system", "content": f"You are an AI feedback assistant helping with a feedback session about: {context['topic']}. The user is the {context['user_role']}."},
+                    {"role": "system", "content": f"You are an AI feedback assistant helping with a feedback session about: {context['topic']}. The user is the feedback provider."},
                     {"role": "user", "content": user_message}
                 ]
             )
             
             ai_response = response.choices[0].message.content
-            logger.debug(f"Successfully generated AI response", extra={"request_id": request_id})
             
             return jsonify({
                 "status": "success",
