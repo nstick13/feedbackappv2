@@ -1,0 +1,22 @@
+{% macro render_chat_interface() %}
+<div class="chat-interface card mb-4">
+    <div class="card-header d-flex justify-content-between align-items-center">
+        <h5 class="mb-0">AI Feedback Assistant</h5>
+        <button class="btn btn-sm btn-outline-secondary" id="toggleChat">
+            <i class="bi bi-chevron-up"></i>
+        </button>
+    </div>
+    <div class="card-body">
+        <div class="chat-messages mb-3" id="chatMessages">
+            <!-- Messages will be dynamically inserted here -->
+        </div>
+        <form id="chatForm" class="chat-input">
+            <div class="input-group">
+                <input type="text" class="form-control" id="messageInput" 
+                       placeholder="Type your message..." required>
+                <button class="btn btn-primary" type="submit">Send</button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endmacro %}

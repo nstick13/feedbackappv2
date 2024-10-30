@@ -11,6 +11,7 @@ from notification_service import (
     send_feedback_submitted_notification,
     send_analysis_completed_notification
 )
+import json
 
 logger = logging.getLogger(__name__)
 
@@ -65,10 +66,8 @@ def create_feedback_request():
             extra={"request_id": request_id}
         )
         
-        # Generate AI prompts
         prompts = generate_feedback_prompts(topic)
         
-        # Create feedback request
         feedback_request = FeedbackRequest(
             topic=topic,
             requestor_id=current_user.id,
@@ -77,13 +76,11 @@ def create_feedback_request():
         db.session.add(feedback_request)
         db.session.flush()
         
-        # Add providers and send email invitations
         email_errors = []
         for email in provider_emails:
             logger.debug(f"Processing provider email: {email}", extra={"request_id": request_id})
             
             try:
-                # Create provider entry with email
                 invitation_sent_time = datetime.utcnow()
                 provider = FeedbackProvider(
                     feedback_request_id=feedback_request.id,
@@ -94,7 +91,6 @@ def create_feedback_request():
                 logger.debug(f"Created provider entry for {email} at {invitation_sent_time}", 
                            extra={"request_id": request_id})
                 
-                # Generate feedback URL
                 feedback_url = url_for(
                     'main.feedback_session',
                     request_id=feedback_request.id,
@@ -103,7 +99,6 @@ def create_feedback_request():
                 logger.debug(f"Generated feedback URL for {email}: {feedback_url}", 
                             extra={"request_id": request_id})
                 
-                # Prepare email invitation
                 logger.info(f"Preparing to send feedback invitation to {email}", extra={"request_id": request_id})
                 logger.debug(
                     f"Email Context Details:\n"
@@ -116,7 +111,6 @@ def create_feedback_request():
                     extra={"request_id": request_id}
                 )
                 
-                # Monitor SMTP connection
                 logger.debug("Initiating SMTP connection for sending invitation", extra={"request_id": request_id})
                 
                 try:
@@ -182,7 +176,6 @@ def feedback_session(request_id):
         logger.debug(f"Accessing feedback session {request_id}", extra={"request_id": session_id})
         feedback_request = FeedbackRequest.query.get_or_404(request_id)
         
-        # Check if user is the requestor
         if feedback_request.requestor_id == current_user.id:
             return render_template(
                 'feedback_session.html',
@@ -190,7 +183,6 @@ def feedback_session(request_id):
                 is_provider=False
             )
         
-        # Check if user is a provider by email
         provider = FeedbackProvider.query.filter_by(
             feedback_request_id=request_id,
             provider_email=current_user.email
@@ -215,7 +207,6 @@ def feedback_session(request_id):
 @main.route('/test/email')
 @login_required
 def test_email():
-    """Test route to verify email functionality"""
     try:
         test_id = str(uuid.uuid4())
         logger.info("Testing email functionality", extra={"request_id": test_id})
@@ -244,3 +235,58 @@ def test_email():
     except Exception as e:
         logger.error(f"Error in test email route: {str(e)}", extra={"request_id": test_id}, exc_info=True)
         return jsonify({"status": "error", "message": str(e)}), 500
+
+@main.route('/chat/message', methods=['POST'])
+@login_required
+def chat_message():
+    request_id = str(uuid.uuid4())
+    try:
+        data = request.get_json()
+        user_message = data.get('message')
+        feedback_request_id = data.get('request_id')
+        
+        if not user_message or not feedback_request_id:
+            return jsonify({
+                "status": "error",
+                "message": "Missing required parameters"
+            }), 400
+            
+        feedback_request = FeedbackRequest.query.get_or_404(feedback_request_id)
+        
+        context = {
+            "topic": feedback_request.topic,
+            "ai_context": feedback_request.ai_context,
+            "user_role": "requestor" if feedback_request.requestor_id == current_user.id else "provider"
+        }
+        
+        try:
+            response = openai_client.chat.completions.create(
+                model="gpt-4",
+                messages=[
+                    {"role": "system", "content": f"You are an AI feedback assistant helping with a feedback session about: {context['topic']}. The user is the {context['user_role']}."},
+                    {"role": "user", "content": user_message}
+                ]
+            )
+            
+            ai_response = response.choices[0].message.content
+            
+            return jsonify({
+                "status": "success",
+                "response": ai_response
+            })
+            
+        except Exception as e:
+            logger.error(f"Error generating AI response: {str(e)}", 
+                        extra={"request_id": request_id})
+            return jsonify({
+                "status": "error",
+                "message": "Failed to generate response"
+            }), 500
+            
+    except Exception as e:
+        logger.error(f"Error in chat message endpoint: {str(e)}", 
+                    extra={"request_id": request_id})
+        return jsonify({
+            "status": "error",
+            "message": str(e)
+        }), 500
