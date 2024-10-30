@@ -4,7 +4,7 @@ from datetime import datetime
 from flask import Blueprint, render_template, jsonify, request, redirect, url_for, current_app
 from flask_login import login_required, current_user
 from models import db, FeedbackRequest, FeedbackProvider, FeedbackSession, User
-from chat_service import generate_feedback_prompts, analyze_feedback
+from chat_service import generate_feedback_prompts, analyze_feedback, openai_client
 from notification_service import (
     send_email,
     send_feedback_invitation,
