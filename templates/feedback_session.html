@@ -22,27 +22,57 @@
                         </div>
                     {% endif %}
                 {% else %}
-                    <div id="feedbackResults">
-                        {% for session in feedback_request.feedback_sessions %}
-                        <div class="feedback-entry mb-4">
-                            <h5>Feedback from {{ session.provider.username }}</h5>
-                            <div class="feedback-content">
-                                {{ session.content.feedback }}
+                    <!-- Requestor View -->
+                    <div class="providers-list mb-4">
+                        <h5>Feedback Providers</h5>
+                        <div class="list-group">
+                            {% for provider in feedback_request.providers %}
+                            <div class="list-group-item">
+                                <div class="d-flex justify-content-between align-items-center">
+                                    <div>
+                                        <h6 class="mb-1">{{ provider.provider_email }}</h6>
+                                        <span class="badge bg-{{ 'success' if provider.status == 'completed' else 'warning' }}">
+                                            {{ provider.status|title }}
+                                        </span>
+                                    </div>
+                                    {% if provider.status == 'invited' %}
+                                    <button class="btn btn-outline-primary btn-sm send-reminder" 
+                                            data-provider-id="{{ provider.id }}">
+                                        Send Reminder
+                                    </button>
+                                    {% endif %}
+                                </div>
                             </div>
-                            {% if session.content.analysis %}
-                            <div class="analysis mt-3">
-                                <h6>AI Analysis</h6>
-                                <ul>
-                                    {% for theme in session.content.analysis.themes %}
-                                    <li>{{ theme }}</li>
-                                    {% endfor %}
-                                </ul>
+                            {% endfor %}
+                        </div>
+                    </div>
+
+                    <div id="feedbackResults">
+                        <h5>Completed Feedback</h5>
+                        {% for provider in feedback_request.providers %}
+                            {% if provider.status == 'completed' %}
+                            <div class="feedback-entry mb-4">
+                                <h6>Feedback from {{ provider.provider_email }}</h6>
+                                {% if provider.feedback_session %}
+                                <div class="feedback-content">
+                                    {{ provider.feedback_session.content.feedback }}
+                                </div>
+                                {% if provider.feedback_session.content.analysis %}
+                                <div class="analysis mt-3">
+                                    <h6>AI Analysis</h6>
+                                    <ul>
+                                        {% for theme in provider.feedback_session.content.analysis.themes %}
+                                        <li>{{ theme }}</li>
+                                        {% endfor %}
+                                    </ul>
+                                </div>
+                                {% endif %}
+                                {% endif %}
                             </div>
                             {% endif %}
-                        </div>
                         {% endfor %}
                         
-                        {% if not feedback_request.feedback_sessions %}
+                        {% if not feedback_request.providers|selectattr('status', 'equalto', 'completed')|list %}
                         <div class="alert alert-info">
                             No feedback has been submitted yet. Please wait for the providers to complete their feedback.
                         </div>
@@ -56,5 +86,9 @@
 {% endblock %}
 
 {% block scripts %}
+{% if is_provider %}
 <script src="{{ url_for('static', filename='js/chat.js') }}"></script>
+{% else %}
+<script src="{{ url_for('static', filename='js/dashboard.js') }}"></script>
+{% endif %}
 {% endblock %}
