@@ -4,6 +4,7 @@ from flask_login import login_required, current_user
 from models import db, FeedbackRequest, FeedbackProvider, FeedbackSession, User
 from chat_service import generate_feedback_prompts, analyze_feedback
 from email_service import send_feedback_invitation
+from notification_service import notify_new_feedback_request, notify_feedback_submitted, notify_analysis_completed
 from datetime import datetime
 
 logger = logging.getLogger(__name__)
@@ -83,6 +84,12 @@ def create_feedback_request():
                     topic,
                     feedback_url
                 )
+                
+                # Send real-time notification
+                notify_new_feedback_request(provider.id, {
+                    'topic': topic,
+                    'request_id': feedback_request.id
+                })
         
         db.session.commit()
         logger.info(f"Successfully created feedback request {feedback_request.id}")
@@ -129,6 +136,10 @@ def submit_feedback(request_id):
             
         logger.debug(f"Submitting feedback for request {request_id}")
         
+        feedback_request = FeedbackRequest.query.get(request_id)
+        if not feedback_request:
+            raise ValueError("Feedback request not found")
+        
         # Analyze feedback with AI
         analysis = analyze_feedback(feedback_content)
         
@@ -151,6 +162,17 @@ def submit_feedback(request_id):
         ).first()
         if provider:
             provider.status = 'completed'
+        
+        # Send notifications
+        notify_feedback_submitted(feedback_request.requestor_id, {
+            'topic': feedback_request.topic,
+            'request_id': request_id
+        })
+        
+        notify_analysis_completed(feedback_request.requestor_id, {
+            'topic': feedback_request.topic,
+            'request_id': request_id
+        })
         
         db.session.commit()
         logger.info(f"Successfully submitted feedback for request {request_id}")
