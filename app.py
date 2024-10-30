@@ -15,7 +15,6 @@ class Base(DeclarativeBase):
 
 db = SQLAlchemy(model_class=Base)
 login_manager = LoginManager()
-mail = Mail()
 
 def create_app():
     app = Flask(__name__)
@@ -41,7 +40,10 @@ def create_app():
     # Initialize extensions
     db.init_app(app)
     login_manager.init_app(app)
-    mail.init_app(app)
+    
+    # Initialize Flask-Mail with app context
+    mail = Mail(app)
+    app.mail = mail  # Make mail accessible via current_app
     
     # User loader function
     @login_manager.user_loader
