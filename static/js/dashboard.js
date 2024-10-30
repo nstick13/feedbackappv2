@@ -7,9 +7,10 @@ document.addEventListener('DOMContentLoaded', function() {
     errorDiv.className = 'alert alert-danger d-none mb-3';
     feedbackForm.insertBefore(errorDiv, feedbackForm.firstChild);
     
-    function showError(message) {
+    function showError(message, isWarning = false) {
         console.error('Error:', message);
         errorDiv.textContent = message;
+        errorDiv.className = `alert ${isWarning ? 'alert-warning' : 'alert-danger'} mb-3`;
         errorDiv.classList.remove('d-none');
     }
     
@@ -72,6 +73,12 @@ document.addEventListener('DOMContentLoaded', function() {
                 console.log('Feedback request created successfully');
                 modalInstance.hide();
                 window.location.reload();
+            } else if (data.status === 'partial_success') {
+                showError(data.message, true);
+                setTimeout(() => {
+                    modalInstance.hide();
+                    window.location.reload();
+                }, 3000);
             } else {
                 showError(data.message || 'Error creating feedback request');
                 setLoading(false);
