@@ -68,14 +68,21 @@ def create_app():
             logger.info("Starting database initialization")
             import models
             
-            # Drop all existing tables
-            logger.info("Dropping existing database tables")
-            db.drop_all()
+            # Check if tables exist
+            inspector = db.inspect(db.engine)
+            existing_tables = inspector.get_table_names()
+            logger.info(f"Existing tables in database: {existing_tables}")
             
-            # Create all tables with new schema
-            logger.info("Creating database tables with updated schema")
+            # Create tables that don't exist
+            logger.info("Creating missing database tables")
             db.create_all()
-            logger.info("Database tables recreated successfully")
+            
+            # Log newly created tables
+            new_tables = set(inspector.get_table_names()) - set(existing_tables)
+            if new_tables:
+                logger.info(f"Created new tables: {new_tables}")
+            else:
+                logger.info("No new tables needed to be created")
             
             # Register blueprints
             from routes import main
