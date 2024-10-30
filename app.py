@@ -5,7 +5,6 @@ from flask_sqlalchemy import SQLAlchemy
 from flask_login import LoginManager
 from flask_mail import Mail
 from sqlalchemy.orm import DeclarativeBase
-from notification_service import init_socket
 
 # Configure logging
 logging.basicConfig(level=logging.DEBUG)
@@ -43,7 +42,6 @@ def create_app():
     db.init_app(app)
     login_manager.init_app(app)
     mail.init_app(app)
-    init_socket(app)  # Initialize SocketIO
     
     # User loader function
     @login_manager.user_loader

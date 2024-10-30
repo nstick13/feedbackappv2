@@ -3,8 +3,7 @@ from flask import Blueprint, render_template, jsonify, request, redirect, url_fo
 from flask_login import login_required, current_user
 from models import db, FeedbackRequest, FeedbackProvider, FeedbackSession, User
 from chat_service import generate_feedback_prompts, analyze_feedback
-from email_service import send_feedback_invitation
-from notification_service import notify_new_feedback_request, notify_feedback_submitted, notify_analysis_completed
+from email_service import send_feedback_invitation, send_feedback_submitted_notification, send_analysis_completed_notification
 from datetime import datetime
 
 logger = logging.getLogger(__name__)
@@ -61,7 +60,7 @@ def create_feedback_request():
         db.session.add(feedback_request)
         db.session.flush()
         
-        # Add providers
+        # Add providers and send email invitations
         for email in provider_emails:
             provider = User.query.filter_by(email=email).first()
             if provider:
@@ -84,12 +83,6 @@ def create_feedback_request():
                     topic,
                     feedback_url
                 )
-                
-                # Send real-time notification
-                notify_new_feedback_request(provider.id, {
-                    'topic': topic,
-                    'request_id': feedback_request.id
-                })
         
         db.session.commit()
         logger.info(f"Successfully created feedback request {feedback_request.id}")
@@ -163,16 +156,23 @@ def submit_feedback(request_id):
         if provider:
             provider.status = 'completed'
         
-        # Send notifications
-        notify_feedback_submitted(feedback_request.requestor_id, {
-            'topic': feedback_request.topic,
-            'request_id': request_id
-        })
+        # Get requestor's email
+        requestor = User.query.get(feedback_request.requestor_id)
+        feedback_url = url_for('main.feedback_session', request_id=request_id, _external=True)
         
-        notify_analysis_completed(feedback_request.requestor_id, {
-            'topic': feedback_request.topic,
-            'request_id': request_id
-        })
+        # Send email notifications
+        send_feedback_submitted_notification(
+            requestor.email,
+            current_user.username,
+            feedback_request.topic,
+            feedback_url
+        )
+        
+        send_analysis_completed_notification(
+            requestor.email,
+            feedback_request.topic,
+            feedback_url
+        )
         
         db.session.commit()
         logger.info(f"Successfully submitted feedback for request {request_id}")
