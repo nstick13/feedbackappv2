@@ -14,6 +14,8 @@ logger = logging.getLogger(__name__)
 class Base(DeclarativeBase):
     pass
 
+app = Flask(__name__)  # Add this line to create the Flask application instance
+
 db = SQLAlchemy(model_class=Base)
 login_manager = LoginManager()
 
