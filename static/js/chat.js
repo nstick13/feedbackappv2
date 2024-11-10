@@ -9,9 +9,9 @@ document.addEventListener('DOMContentLoaded', function() {
     errorContainer.className = 'alert alert-danger d-none mb-3';
     chatMessages.parentElement.insertBefore(errorContainer, chatMessages);
     
-    // Initialize with a welcome message
-    appendMessage('ai', 'Hello! I\'m your AI feedback assistant. How can I help you with the feedback process?');
-    
+    // Fetch and display initial conversation summary
+    fetchInitialConversationSummary();
+
     // Toggle chat visibility
     toggleChat.addEventListener('click', function() {
         const cardBody = this.closest('.card').querySelector('.card-body');
@@ -71,6 +71,33 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     });
     
+    // Function to fetch and display initial conversation summary
+    async function fetchInitialConversationSummary() {
+        try {
+            const response = await fetch(window.location.origin + '/get_initial_summary', {
+                method: 'GET',
+                headers: {
+                    'Content-Type': 'application/json'
+                }
+            });
+
+            if (!response.ok) {
+                throw new Error('Failed to fetch initial conversation summary');
+            }
+
+            const data = await response.json();
+
+            if (data.status === 'success') {
+                appendMessage('ai', `Summary of your feedback needs: ${data.summary}`);
+            } else {
+                showError(data.message || 'Failed to fetch initial conversation summary');
+            }
+        } catch (error) {
+            console.error('Error:', error);
+            showError('Network error occurred while fetching initial conversation summary.');
+        }
+    }
+
     // Helper function to append messages
     function appendMessage(type, content) {
         const messageDiv = document.createElement('div');
@@ -96,3 +123,4 @@ document.addEventListener('DOMContentLoaded', function() {
         return window.location.pathname.split('/').pop();
     }
 });
+

@@ -15,6 +15,10 @@
                             <h5 class="alert-heading">Welcome to the AI-guided feedback session!</h5>
                             <p>Please engage with our AI assistant to provide your feedback. The assistant will guide you through the process and help you structure your thoughts.</p>
                         </div>
+                        <div class="alert alert-secondary mb-4">
+                            <h5 class="alert-heading">Conversation Summary</h5>
+                            <p>{{ feedback_request.ai_context.summary }}</p>
+                        </div>
                         {{ render_chat_interface() }}
                     {% else %}
                         <div class="alert alert-warning">
@@ -92,3 +96,4 @@
 <script src="{{ url_for('static', filename='js/dashboard.js') }}"></script>
 {% endif %}
 {% endblock %}
+
