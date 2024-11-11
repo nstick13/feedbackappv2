@@ -81,8 +81,8 @@
                             <input type="text" class="form-control" id="topic" required>
                         </div>
                         <div class="mb-3">
-                            <label for="providers" class="form-label">Provider Emails (one per line)</label>
-                            <textarea class="form-control" id="providers" rows="3" required></textarea>
+                            <label for="recipient_email" class="form-label">Recipient Email</label>
+                            <input type="email" class="form-control" id="recipient_email" required>
                         </div>
                     </form>
                 </div>
@@ -102,13 +102,13 @@
             $('#feedbackRequestForm').on('submit', function(event) {
                 event.preventDefault();
                 const topic = $('#topic').val();
-                const providers = $('#providers').val().split('\n');
+                const recipient_email = $('#recipient_email').val();
                 
                 $.ajax({
                     url: '/request_feedback',
                     type: 'POST',
                     contentType: 'application/json',
-                    data: JSON.stringify({ topic: topic, providers: providers }),
+                    data: JSON.stringify({ topic: topic, recipient_email: recipient_email }),
                     success: function(response) {
                         alert('Feedback request sent successfully');
                     },
