@@ -58,7 +58,7 @@ mail = Mail(app)
 app.mail = mail  # Make mail accessible via current_app
 
 # Import the User model
-from models import User
+from models import User  # Ensure you import your User model
 
 # Define the user loader function
 @login_manager.user_loader
