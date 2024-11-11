@@ -14,8 +14,8 @@ GOOGLE_CLIENT_ID = os.environ["GOOGLE_OAUTH_CLIENT_ID"]
 GOOGLE_CLIENT_SECRET = os.environ["GOOGLE_OAUTH_CLIENT_SECRET"]
 GOOGLE_DISCOVERY_URL = "https://accounts.google.com/.well-known/openid-configuration"
 
-# Use HEROKU_APP_NAME_DEV for the redirect URL
-DEV_REDIRECT_URL = f'https://{os.environ["HEROKU_APP_NAME_DEV"]}.herokuapp.com/google_login/callback'
+# Use the actual Heroku app URL for the redirect URL
+DEV_REDIRECT_URL = "https://aifeedback-eae15e0c70da.herokuapp.com/google_login/callback"
 
 # ALWAYS display setup instructions to the user:
 print(f"""To make Google authentication work:
@@ -27,21 +27,24 @@ For detailed instructions, see:
 https://docs.replit.com/additional-resources/google-auth-in-flask#set-up-your-oauth-app--client
 """)
 
+# Print the DEV_REDIRECT_URL for debugging
+print(f"DEV_REDIRECT_URL: {DEV_REDIRECT_URL}")
+
 client = WebApplicationClient(GOOGLE_CLIENT_ID)
 
 google_auth_bp = Blueprint('google_auth', __name__)
 
+def get_google_provider_cfg():
+    return requests.get(GOOGLE_DISCOVERY_URL).json()
 
 @google_auth_bp.route('/login')
 def login():
-    google_provider_cfg = requests.get(GOOGLE_DISCOVERY_URL).json()
+    google_provider_cfg = get_google_provider_cfg()
     authorization_endpoint = google_provider_cfg["authorization_endpoint"]
 
     request_uri = client.prepare_request_uri(
         authorization_endpoint,
-        # Replacing http:// with https:// is important as the external
-        # protocol must be https to match the URI whitelisted
-        redirect_uri=request.base_url.replace("http://", "https://") + "/callback",
+        redirect_uri=DEV_REDIRECT_URL,
         scope=["openid", "email", "profile"],
     )
     return redirect(request_uri)
@@ -50,15 +53,13 @@ def login():
 @google_auth_bp.route('/callback')
 def callback():
     code = request.args.get("code")
-    google_provider_cfg = requests.get(GOOGLE_DISCOVERY_URL).json()
+    google_provider_cfg = get_google_provider_cfg()
     token_endpoint = google_provider_cfg["token_endpoint"]
 
     token_url, headers, body = client.prepare_token_request(
         token_endpoint,
-        # Replacing http:// with https:// is important as the external
-        # protocol must be https to match the URI whitelisted
-        authorization_response=request.url.replace("http://", "https://"),
-        redirect_url=request.base_url.replace("http://", "https://"),
+        authorization_response=request.url,
+        redirect_url=DEV_REDIRECT_URL,
         code=code,
     )
     token_response = requests.post(
@@ -74,22 +75,24 @@ def callback():
     uri, headers, body = client.add_token(userinfo_endpoint)
     userinfo_response = requests.get(uri, headers=headers, data=body)
 
-    userinfo = userinfo_response.json()
-    if userinfo.get("email_verified"):
-        users_email = userinfo["email"]
-        users_name = userinfo["given_name"]
+    if userinfo_response.json().get("email_verified"):
+        unique_id = userinfo_response.json()["sub"]
+        users_email = userinfo_response.json()["email"]
+        picture = userinfo_response.json()["picture"]
+        users_name = userinfo_response.json()["given_name"]
+
+        user = User.query.filter_by(email=users_email).first()
+        if user is None:
+            user = User(
+                id=unique_id, name=users_name, email=users_email, profile_pic=picture
+            )
+            db.session.add(user)
+            db.session.commit()
+
+        login_user(user)
+        return redirect(url_for("main.index"))
     else:
         return "User email not available or not verified by Google.", 400
-
-    user = User.query.filter_by(email=users_email).first()
-    if not user:
-        user = User(username=users_name, email=users_email)
-        db.session.add(user)
-        db.session.commit()
-
-    login_user(user)
-
-    return redirect(url_for("main.index"))
 
 
 @google_auth_bp.route('/logout')
