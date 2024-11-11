@@ -5,7 +5,7 @@ import os
 
 import requests
 from app import db
-from flask import Blueprint, redirect, request, url_for
+from flask import Blueprint, redirect, request, url_for, session
 from flask_login import login_required, login_user, logout_user
 from models import User
 from oauthlib.oauth2 import WebApplicationClient
@@ -29,10 +29,10 @@ https://docs.replit.com/additional-resources/google-auth-in-flask#set-up-your-oa
 
 client = WebApplicationClient(GOOGLE_CLIENT_ID)
 
-google_auth = Blueprint("google_auth", __name__)
+google_auth_bp = Blueprint('google_auth', __name__)
 
 
-@google_auth.route("/google_login")
+@google_auth_bp.route('/login')
 def login():
     google_provider_cfg = requests.get(GOOGLE_DISCOVERY_URL).json()
     authorization_endpoint = google_provider_cfg["authorization_endpoint"]
@@ -47,7 +47,7 @@ def login():
     return redirect(request_uri)
 
 
-@google_auth.route("/google_login/callback")
+@google_auth_bp.route('/callback')
 def callback():
     code = request.args.get("code")
     google_provider_cfg = requests.get(GOOGLE_DISCOVERY_URL).json()
@@ -92,7 +92,7 @@ def callback():
     return redirect(url_for("main.index"))
 
 
-@google_auth.route("/logout")
+@google_auth_bp.route('/logout')
 @login_required
 def logout():
     logout_user()
