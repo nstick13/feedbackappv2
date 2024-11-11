@@ -20,8 +20,16 @@ app = Flask(__name__)  # Create the Flask application instance
 app.secret_key = os.environ.get("FLASK_SECRET_KEY", "dev_key_only_for_development")
 if not app.secret_key:
     logger.error("No Flask secret key set!")
-    
-app.config["SQLALCHEMY_DATABASE_URI"] = os.environ.get("DATABASE_URL")
+
+# Get the database URL from Heroku's environment variable
+database_url = os.getenv("DATABASE_URL")
+
+# Replace 'postgres://' with 'postgresql://'
+if database_url and database_url.startswith("postgres://"):
+    database_url = database_url.replace("postgres://", "postgresql://", 1)
+
+# Set the modified URL to your Flask configuration
+app.config["SQLALCHEMY_DATABASE_URI"] = database_url
 app.config["SQLALCHEMY_ENGINE_OPTIONS"] = {
     "pool_recycle": 300,
     "pool_pre_ping": True,
