@@ -6,6 +6,7 @@ from flask_login import LoginManager
 from flask_mail import Mail
 from sqlalchemy.orm import DeclarativeBase
 from sqlalchemy import text
+from extensions import db  # Import db from extensions.py
 
 # Configure logging
 logging.basicConfig(level=logging.DEBUG)
@@ -50,12 +51,19 @@ else:
     logger.info(f"OpenAI API key is set: {openai_api_key[:5]}...")
 
 # Initialize extensions
-db = SQLAlchemy(model_class=Base)
 db.init_app(app)
 login_manager = LoginManager()
 login_manager.init_app(app)
 mail = Mail(app)
 app.mail = mail  # Make mail accessible via current_app
+
+# Import the User model
+from models import User
+
+# Define the user loader function
+@login_manager.user_loader
+def load_user(user_id):
+    return User.query.get(int(user_id))
 
 # Register blueprints
 from routes import main as main_blueprint
