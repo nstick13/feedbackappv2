@@ -14,8 +14,8 @@ GOOGLE_CLIENT_ID = os.environ["GOOGLE_OAUTH_CLIENT_ID"]
 GOOGLE_CLIENT_SECRET = os.environ["GOOGLE_OAUTH_CLIENT_SECRET"]
 GOOGLE_DISCOVERY_URL = "https://accounts.google.com/.well-known/openid-configuration"
 
-# Make sure to use this redirect URL. It has to match the one in the whitelist
-DEV_REDIRECT_URL = f'https://{os.environ["REPLIT_DEV_DOMAIN"]}/google_login/callback'
+# Use HEROKU_APP_NAME_DEV for the redirect URL
+DEV_REDIRECT_URL = f'https://{os.environ["HEROKU_APP_NAME_DEV"]}.herokuapp.com/google_login/callback'
 
 # ALWAYS display setup instructions to the user:
 print(f"""To make Google authentication work:
