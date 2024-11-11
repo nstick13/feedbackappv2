@@ -3,7 +3,6 @@ from typing import List
 from flask import current_app
 from sendgrid import SendGridAPIClient
 from sendgrid.helpers.mail import Mail
-from datetime import datetime
 
 logging.basicConfig(
     level=logging.DEBUG,

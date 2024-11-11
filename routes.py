@@ -293,3 +293,36 @@ def chat_message():
             "message": str(e)
         }), 500
 
+@main.route('/request_feedback', methods=['POST'])
+@login_required
+def request_feedback():
+    request_id = str(uuid.uuid4())
+    try:
+        logger.debug(f"Requesting feedback for user {current_user.id_string}", extra={"request_id": request_id})
+        
+        data = request.get_json()
+        topic = data.get('topic')
+        recipient_email = data.get('recipient_email')
+        
+        if not topic or not recipient_email:
+            logger.error("Topic and recipient email are required", extra={"request_id": request_id})
+            return jsonify({"error": "Topic and recipient email are required"}), 400
+        
+        # Create a new feedback request
+        feedback_request = FeedbackRequest(
+            topic=topic,
+            requestor_id=current_user.id_string
+        )
+        db.session.add(feedback_request)
+        db.session.commit()
+
+        # Send feedback request email
+        subject = "Feedback Request"
+        html_content = f"<p>{current_user.username} has requested feedback on the topic: {topic}</p>"
+        send_email(subject, [recipient_email], html_content, request_id)
+
+        return jsonify({"message": "Feedback request sent successfully"}), 200
+    except Exception as e:
+        logger.error(f"Error requesting feedback: {str(e)}", extra={"request_id": request_id})
+        return jsonify({"error": "An error occurred while requesting feedback"}), 500
+
