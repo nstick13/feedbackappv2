@@ -22,11 +22,14 @@ app.secret_key = os.environ.get("FLASK_SECRET_KEY", "dev_key_only_for_developmen
 if not app.secret_key:
     logger.error("No Flask secret key set!")
 
-# Get the database URL from Heroku's environment variable
-database_url = os.getenv("DATABASE_URL")
+# Determine the database URL
+if os.getenv("DATABASE_URL"):
+    database_url = os.getenv("DATABASE_URL")
+else:
+    database_url = "postgresql://localhost/natetgreat"
 
 # Replace 'postgres://' with 'postgresql://'
-if database_url and database_url.startswith("postgres://"):
+if database_url.startswith("postgres://"):
     database_url = database_url.replace("postgres://", "postgresql://", 1)
 
 # Set the modified URL to your Flask configuration
@@ -68,6 +71,9 @@ def load_user(user_id):
 # Register blueprints
 from routes import main as main_blueprint
 app.register_blueprint(main_blueprint)
+
+from google_auth import google_auth_bp  # Import the google_auth blueprint
+app.register_blueprint(google_auth_bp, url_prefix='/auth')
 
 def migrate_database():
     with current_app.app_context():
