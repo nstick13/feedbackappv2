@@ -1,7 +1,8 @@
 import logging
 from typing import List
 from flask import current_app
-from flask_mail import Message
+from sendgrid import SendGridAPIClient
+from sendgrid.helpers.mail import Mail
 from datetime import datetime
 
 logging.basicConfig(
@@ -11,7 +12,7 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 def send_email(subject: str, recipients: List[str], html_content: str, request_id: str) -> bool:
-    """Send email using Flask-Mail with detailed logging"""
+    """Send email using SendGrid with detailed logging"""
     try:
         logger.info(f"Preparing to send email: {subject} to {recipients}", 
                    extra={"request_id": request_id})
@@ -19,48 +20,27 @@ def send_email(subject: str, recipients: List[str], html_content: str, request_i
         # Log email configuration
         logger.debug(
             f"Email Configuration:\n"
-            f"- MAIL_SERVER: {current_app.config['MAIL_SERVER']}\n"
-            f"- MAIL_PORT: {current_app.config['MAIL_PORT']}\n"
-            f"- MAIL_USE_TLS: {current_app.config['MAIL_USE_TLS']}\n"
-            f"- MAIL_USERNAME: {current_app.config['MAIL_USERNAME']}",
+            f"- SENDGRID_API_KEY: {current_app.config['SENDGRID_API_KEY'][:5]}... (hidden)\n"
+            f"- SENDGRID_FROM_EMAIL: {current_app.config['SENDGRID_FROM_EMAIL']}",
             extra={"request_id": request_id}
         )
 
         # Create email message
-        msg = Message(
+        message = Mail(
+            from_email=current_app.config['SENDGRID_FROM_EMAIL'],
+            to_emails=recipients,
             subject=subject,
-            sender=current_app.config['MAIL_USERNAME'],
-            recipients=recipients
+            html_content=html_content
         )
 
-        # Add HTML content with proper formatting
-        msg.html = f"""
-        <!DOCTYPE html>
-        <html>
-            <body style="font-family: Arial, sans-serif; line-height: 1.6;">
-                {html_content}
-            </body>
-        </html>
-        """
+        # Send email using SendGrid
+        sg = SendGridAPIClient(api_key=current_app.config['SENDGRID_API_KEY'])
+        response = sg.send(message)
 
-        logger.debug(f"Email content preview (first 200 chars): {msg.html[:200]}...", 
-                    extra={"request_id": request_id})
-
-        # Send email using Flask-Mail
-        current_app.mail.send(msg)
-        
-        logger.info(f"Email sent successfully at {datetime.utcnow()}", 
-                   extra={"request_id": request_id})
+        logger.info(f"Email sent: {response.status_code}", extra={"request_id": request_id})
         return True
-
     except Exception as e:
-        logger.error(
-            f"Failed to send email: {str(e)}\n"
-            f"Subject: {subject}\n"
-            f"Recipients: {recipients}",
-            extra={"request_id": request_id},
-            exc_info=True
-        )
+        logger.error(f"Failed to send email: {str(e)}", extra={"request_id": request_id})
         return False
 
 def send_feedback_invitation(recipient_email: str, requestor_name: str, topic: str, feedback_url: str, request_id: str):
