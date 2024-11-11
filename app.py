@@ -23,9 +23,7 @@ if not app.secret_key:
     logger.error("No Flask secret key set!")
 
 # Determine the database URL
-database_url = os.getenv("DATABASE_URL")
-if not database_url:
-    logger.error("No DATABASE_URL set for Heroku!")
+database_url = os.getenv("DATABASE_URL", "postgresql://localhost/natetgreat")
 
 # Replace 'postgres://' with 'postgresql://'
 if database_url.startswith("postgres://"):
@@ -65,7 +63,7 @@ from models import User  # Ensure you import your User model
 # Define the user loader function
 @login_manager.user_loader
 def load_user(user_id):
-    return User.query.get(int(user_id))
+    return User.query.get(user_id)
 
 # Register blueprints
 from routes import main as main_blueprint

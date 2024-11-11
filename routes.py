@@ -32,32 +32,30 @@ def dashboard():
 def initiate_conversation():
     request_id = str(uuid.uuid4())
     try:
-        logger.debug(f"Initiating conversation for user {current_user.id}", extra={"request_id": request_id})
+        logger.debug(f"Initiating conversation for user {current_user.id_string}", extra={"request_id": request_id})
         
         data = request.get_json()
         user_input = data.get('user_input')
         
         if not user_input:
             logger.error("User input is required", extra={"request_id": request_id})
-            return jsonify({"status": "error", "message": "User input is required"}), 400
+            return jsonify({"error": "User input is required"}), 400
         
-        # Initiate conversation with OpenAI
-        summary = initiate_user_conversation(user_input)
-        
-        # Create a new FeedbackRequest with the summary
+        # Create a new feedback request
         feedback_request = FeedbackRequest(
             topic=user_input,
-            requestor_id=current_user.id,
-            ai_context=summary
+            requestor_id=current_user.id_string
         )
         db.session.add(feedback_request)
         db.session.commit()
-        
-        return jsonify({"status": "success", "message": "Conversation initiated", "summary": summary}), 200
-        
+
+        # Initiate conversation
+        initiate_user_conversation(current_user.id_string, feedback_request.id)
+
+        return jsonify({"message": "Conversation initiated successfully"}), 200
     except Exception as e:
-        logger.error(f"Error initiating conversation: {str(e)}", extra={"request_id": request_id}, exc_info=True)
-        return jsonify({"status": "error", "message": str(e)}), 500
+        logger.error(f"Error initiating conversation: {str(e)}", extra={"request_id": request_id})
+        return jsonify({"error": "An error occurred while initiating the conversation"}), 500
 
 @main.route('/feedback/session/<int:request_id>')
 def feedback_session(request_id):

@@ -3,8 +3,8 @@ from extensions import db
 from flask_login import UserMixin
 
 class User(UserMixin, db.Model):
-    id = db.Column(db.Integer, primary_key=True)
-    name = db.Column(db.String(100))  
+    id_string = db.Column(db.String(100), primary_key=True)
+    name = db.Column(db.String(100))
     username = db.Column(db.String(64), unique=True, nullable=False)
     email = db.Column(db.String(120), unique=True, nullable=False)
     password_hash = db.Column(db.String(256))
@@ -13,7 +13,7 @@ class User(UserMixin, db.Model):
 class FeedbackRequest(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     topic = db.Column(db.String(200), nullable=False)
-    requestor_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+    requestor_id = db.Column(db.String(100), db.ForeignKey('user.id_string'), nullable=False)
     status = db.Column(db.String(20), default='pending')
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     ai_context = db.Column(db.JSON, default={})
@@ -25,7 +25,7 @@ class FeedbackProvider(db.Model):
 class FeedbackSession(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     feedback_request_id = db.Column(db.Integer, db.ForeignKey('feedback_request.id'))
-    provider_id = db.Column(db.Integer, db.ForeignKey('user.id'))
+    provider_id = db.Column(db.String(100), db.ForeignKey('user.id_string'))
     content = db.Column(db.JSON)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     completed_at = db.Column(db.DateTime)

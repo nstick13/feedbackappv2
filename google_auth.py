@@ -70,7 +70,7 @@ def callback():
         if user is None:
             # New user, sign them up
             user = User(
-                id=unique_id, username=users_name, email=users_email
+                id_string=unique_id, username=users_name, email=users_email
             )
             db.session.add(user)
             db.session.commit()
