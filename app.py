@@ -35,6 +35,19 @@ app.config["SQLALCHEMY_ENGINE_OPTIONS"] = {
     "pool_pre_ping": True,
 }
 
+# Email configuration
+app.config['MAIL_SERVER'] = 'smtp.gmail.com'
+app.config['MAIL_PORT'] = 587
+app.config['MAIL_USE_TLS'] = True
+app.config['MAIL_USERNAME'] = os.environ.get('MAIL_USERNAME')
+app.config['MAIL_PASSWORD'] = os.environ.get('MAIL_PASSWORD')
+
+# OpenAI configuration
+openai_api_key = os.environ.get("OPEN_AI_KEY")
+if not openai_api_key:
+    logger.error("No OpenAI API key set!")
+else:
+    logger.info(f"OpenAI API key is set: {openai_api_key[:5]}...")
 
 # Initialize extensions
 db = SQLAlchemy(model_class=Base)
