@@ -10,6 +10,8 @@ from flask_login import login_required, login_user, logout_user
 from models import User
 from oauthlib.oauth2 import WebApplicationClient
 
+google_auth_bp = Blueprint('google_auth', __name__)
+
 GOOGLE_CLIENT_ID = os.environ["GOOGLE_OAUTH_CLIENT_ID"]
 GOOGLE_CLIENT_SECRET = os.environ["GOOGLE_OAUTH_CLIENT_SECRET"]
 GOOGLE_DISCOVERY_URL = "https://accounts.google.com/.well-known/openid-configuration"
@@ -32,16 +34,13 @@ print(f"DEV_REDIRECT_URL: {DEV_REDIRECT_URL}")
 
 client = WebApplicationClient(GOOGLE_CLIENT_ID)
 
-google_auth_bp = Blueprint('google_auth', __name__)
-
 def get_google_provider_cfg():
     return requests.get(GOOGLE_DISCOVERY_URL).json()
 
-@google_auth_bp.route('/login')
+@google_auth_bp.route("/login")
 def login():
     google_provider_cfg = get_google_provider_cfg()
     authorization_endpoint = google_provider_cfg["authorization_endpoint"]
-
     request_uri = client.prepare_request_uri(
         authorization_endpoint,
         redirect_uri=DEV_REDIRECT_URL,
@@ -49,18 +48,16 @@ def login():
     )
     return redirect(request_uri)
 
-
-@google_auth_bp.route('/callback')
+@google_auth_bp.route("/callback")
 def callback():
     code = request.args.get("code")
     google_provider_cfg = get_google_provider_cfg()
     token_endpoint = google_provider_cfg["token_endpoint"]
-
     token_url, headers, body = client.prepare_token_request(
         token_endpoint,
         authorization_response=request.url,
         redirect_url=DEV_REDIRECT_URL,
-        code=code,
+        code=code
     )
     token_response = requests.post(
         token_url,
@@ -68,7 +65,6 @@ def callback():
         data=body,
         auth=(GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET),
     )
-
     client.parse_request_body_response(json.dumps(token_response.json()))
 
     userinfo_endpoint = google_provider_cfg["userinfo_endpoint"]
@@ -94,8 +90,7 @@ def callback():
     else:
         return "User email not available or not verified by Google.", 400
 
-
-@google_auth_bp.route('/logout')
+@google_auth_bp.route("/logout")
 @login_required
 def logout():
     logout_user()
