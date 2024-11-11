@@ -30,20 +30,8 @@ def index():
         return render_template('error.html', error=str(e)), 500
 
 @main.route('/dashboard')
-@login_required
 def dashboard():
-    request_id = str(uuid.uuid4())
-    try:
-        logger.debug(f"Fetching dashboard data for user {current_user.id}", extra={"request_id": request_id})
-        my_requests = FeedbackRequest.query.filter_by(requestor_id=current_user.id).all()
-        pending_feedback = FeedbackProvider.query.filter_by(
-            provider_email=current_user.email,
-            status='invited'
-        ).all()
-        return render_template('dashboard.html', requests=my_requests, pending=pending_feedback)
-    except Exception as e:
-        logger.error(f"Error rendering dashboard: {str(e)}", extra={"request_id": request_id})
-        return render_template('error.html', error=str(e)), 500
+    return "This is the dashboard page."
 
 @main.route('/initiate_conversation', methods=['POST'])
 @login_required
