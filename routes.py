@@ -20,11 +20,7 @@ main = Blueprint('main', __name__)
 
 @main.route('/')
 def index():
-    try:
-        return render_template('index.html')
-    except Exception as e:
-        logger.error(f"Error rendering index page: {str(e)}")
-        return render_template('error.html', error=str(e)), 500
+    return render_template('index.html')
 
 @main.route('/dashboard')
 @login_required

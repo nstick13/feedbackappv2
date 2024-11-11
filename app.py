@@ -23,10 +23,9 @@ if not app.secret_key:
     logger.error("No Flask secret key set!")
 
 # Determine the database URL
-if os.getenv("DATABASE_URL"):
-    database_url = os.getenv("DATABASE_URL")
-else:
-    database_url = "postgresql://localhost/natetgreat"
+database_url = os.getenv("DATABASE_URL")
+if not database_url:
+    logger.error("No DATABASE_URL set for Heroku!")
 
 # Replace 'postgres://' with 'postgresql://'
 if database_url.startswith("postgres://"):
@@ -73,7 +72,7 @@ from routes import main as main_blueprint
 app.register_blueprint(main_blueprint)
 
 from google_auth import google_auth_bp  # Import the google_auth blueprint
-app.register_blueprint(google_auth_bp, url_prefix='/auth')
+app.register_blueprint(google_auth_bp, url_prefix='/google_login')
 
 def migrate_database():
     with current_app.app_context():

@@ -19,16 +19,6 @@ GOOGLE_DISCOVERY_URL = "https://accounts.google.com/.well-known/openid-configura
 # Use the actual Heroku app URL for the redirect URL
 DEV_REDIRECT_URL = "https://aifeedback-eae15e0c70da.herokuapp.com/google_login/callback"
 
-# ALWAYS display setup instructions to the user:
-print(f"""To make Google authentication work:
-1. Go to https://console.cloud.google.com/apis/credentials
-2. Create a new OAuth 2.0 Client ID
-3. Add {DEV_REDIRECT_URL} to Authorized redirect URIs
-
-For detailed instructions, see:
-https://docs.replit.com/additional-resources/google-auth-in-flask#set-up-your-oauth-app--client
-""")
-
 # Print the DEV_REDIRECT_URL for debugging
 print(f"DEV_REDIRECT_URL: {DEV_REDIRECT_URL}")
 
