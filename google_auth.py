@@ -64,17 +64,18 @@ def callback():
     if userinfo_response.json().get("email_verified"):
         unique_id = userinfo_response.json()["sub"]
         users_email = userinfo_response.json()["email"]
-        picture = userinfo_response.json()["picture"]
         users_name = userinfo_response.json()["given_name"]
 
         user = User.query.filter_by(email=users_email).first()
         if user is None:
+            # New user, sign them up
             user = User(
-                id=unique_id, name=users_name, email=users_email, profile_pic=picture
+                id=unique_id, username=users_name, email=users_email
             )
             db.session.add(user)
             db.session.commit()
 
+        # Existing user, log them in
         login_user(user)
         return redirect(url_for("main.dashboard"))  # Ensure this points to your dashboard route
     else:
