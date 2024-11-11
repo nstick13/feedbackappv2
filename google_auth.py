@@ -86,7 +86,7 @@ def callback():
             db.session.commit()
 
         login_user(user)
-        return redirect(url_for("main.index"))
+        return redirect(url_for("main.dashboard"))  # Ensure this points to your dashboard route
     else:
         return "User email not available or not verified by Google.", 400
 

@@ -27,8 +27,9 @@ def index():
         return render_template('error.html', error=str(e)), 500
 
 @main.route('/dashboard')
+@login_required
 def dashboard():
-    return "This is the dashboard page."
+    return render_template('dashboard.html')
 
 @main.route('/initiate_conversation', methods=['POST'])
 @login_required
