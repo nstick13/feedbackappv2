@@ -4,7 +4,7 @@ from sendgrid.helpers.mail import Mail
 
 message = Mail(
     from_email=os.environ['SENDGRID_FROM_EMAIL'],
-    to_emails='nathan.stickney@gmail.com',
+    to_emails='nathan.stickney@icloud.com',
     subject='Test Email from SendGrid',
     html_content='<strong>This is a test email from SendGrid.</strong>'
 )
