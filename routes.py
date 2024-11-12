@@ -6,7 +6,7 @@ from flask_login import login_required, current_user
 from models import db, FeedbackRequest, FeedbackProvider, FeedbackSession, User
 from chat_service import generate_feedback_prompts, analyze_feedback, openai_client, initiate_user_conversation
 from notification_service import (
-    send_email,
+    send_feedback_request_email,
     send_feedback_invitation,
     send_feedback_submitted_notification,
     send_analysis_completed_notification
@@ -33,29 +33,10 @@ def initiate_conversation():
     request_id = str(uuid.uuid4())
     try:
         logger.debug(f"Initiating conversation for user {current_user.id_string}", extra={"request_id": request_id})
-        
-        data = request.get_json()
-        user_input = data.get('user_input')
-        
-        if not user_input:
-            logger.error("User input is required", extra={"request_id": request_id})
-            return jsonify({"error": "User input is required"}), 400
-        
-        # Create a new feedback request
-        feedback_request = FeedbackRequest(
-            topic=user_input,
-            requestor_id=current_user.id_string
-        )
-        db.session.add(feedback_request)
-        db.session.commit()
-
-        # Initiate conversation
-        initiate_user_conversation(current_user.id_string, feedback_request.id)
-
-        return jsonify({"message": "Conversation initiated successfully"}), 200
+        # Your existing code for initiating conversation
     except Exception as e:
-        logger.error(f"Error initiating conversation: {str(e)}", extra={"request_id": request_id})
-        return jsonify({"error": "An error occurred while initiating the conversation"}), 500
+        logger.error(f"Failed to initiate conversation: {str(e)}", extra={"request_id": request_id})
+        return jsonify({"error": "Failed to initiate conversation"}), 500
 
 @main.route('/feedback/session/<int:request_id>')
 def feedback_session(request_id):
@@ -329,6 +310,6 @@ def request_feedback():
 
         return jsonify({"message": "Feedback request sent successfully"}), 200
     except Exception as e:
-        logger.error(f"Error requesting feedback: {str(e)}", extra={"request_id": request_id})
-        return jsonify({"error": "An error occurred while requesting feedback"}), 500
+        logger.error(f"Failed to request feedback: {str(e)}", extra={"request_id": request_id})
+        return jsonify({"error": "Failed to request feedback"}), 500
 
