@@ -7,7 +7,6 @@ from models import db, FeedbackRequest, FeedbackProvider, FeedbackSession, User
 from chat_service import generate_feedback_prompts, analyze_feedback, openai_client, initiate_user_conversation
 from notification_service import (
     send_feedback_request_email,
-    send_feedback_invitation,
     send_feedback_submitted_notification,
     send_analysis_completed_notification
 )
@@ -301,10 +300,10 @@ def request_feedback():
         feedback_url = url_for('main.feedback_session', request_id=request_id, _external=True)
 
         # Send feedback request email
-        send_feedback_invitation(
+        send_feedback_request_email(
             recipient_email=recipient_email,
             requestor_name=current_user.username,
-            topic=topic,
+            feedback_url=feedback_url,
             request_id=request_id
         )
 
