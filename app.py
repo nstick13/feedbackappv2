@@ -9,9 +9,6 @@ from sqlalchemy import text
 from extensions import db  # Import db from extensions.py
 from flask_migrate import Migrate
 
-
-migrate = Migrate(app, db)
-
 # Configure logging
 logging.basicConfig(level=logging.DEBUG)
 logger = logging.getLogger(__name__)
@@ -33,7 +30,12 @@ database_url = os.getenv("DATABASE_URL", "postgresql://localhost/natetgreat")
 if database_url.startswith("postgres://"):
     database_url = database_url.replace("postgres://", "postgresql://", 1)
 
-# Set the modified URL to your Flask configuration
+# Initialize the database with the app
+db.init_app(app)
+
+# Initialize Flask-Migrate
+migrate = Migrate(app, db)
+
 app.config["SQLALCHEMY_DATABASE_URI"] = database_url
 app.config["SQLALCHEMY_ENGINE_OPTIONS"] = {
     "pool_recycle": 300,
