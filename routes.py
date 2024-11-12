@@ -154,12 +154,12 @@ def send_reminder(provider_id):
             _external=True
         )
         
-        send_feedback_invitation(
-            provider.provider_email,
-            current_user.username,
-            feedback_request.topic,
-            feedback_url,
-            request_id
+        send_feedback_request_email(
+            provider_email=provider.provider_email,
+            requestor_name=current_user.username,
+            topic=feedback_request.topic,
+            feedback_url=feedback_url,
+            request_id=request_id
         )
         
         provider.invitation_sent = datetime.utcnow()
