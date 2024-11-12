@@ -8,7 +8,7 @@ from sqlalchemy.orm import DeclarativeBase
 from sqlalchemy import text
 from extensions import db  # Import db from extensions.py
 from flask_migrate import Migrate
-from app import app  # your Flask app instance
+
 
 migrate = Migrate(app, db)
 
