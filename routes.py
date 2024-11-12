@@ -317,9 +317,12 @@ def request_feedback():
         db.session.commit()
 
         # Send feedback request email
-        subject = "Feedback Request"
-        html_content = f"<p>{current_user.username} has requested feedback on the topic: {topic}</p>"
-        send_email(subject, [recipient_email], html_content, request_id)
+        send_feedback_invitation(
+            recipient_email=recipient_email,
+            requestor_name=current_user.username,
+            topic=topic,
+            request_id=request_id
+        )
 
         return jsonify({"message": "Feedback request sent successfully"}), 200
     except Exception as e:

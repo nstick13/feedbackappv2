@@ -46,41 +46,42 @@ def send_email(subject: str, recipients: List[str], html_content: str, request_i
         logger.error(f"Failed to send email: {str(e)}", extra={"request_id": request_id})
         return False
 
-def send_feedback_invitation(recipient_email: str, requestor_name: str, topic: str, feedback_url: str, request_id: str):
-    """Send feedback invitation email"""
+def send_feedback_invitation(recipient_email: str, requestor_name: str, topic: str, request_id: str):
+    """Send feedback invitation email using SendGrid template"""
     try:
         logger.info(f"Preparing feedback invitation email for {recipient_email}", 
                    extra={"request_id": request_id})
         
-        html_content = f"""
-        <div style="max-width: 600px; margin: 0 auto; padding: 20px;">
-        <h2 style="color: #333;">Feedback Invitation</h2>
-        <p>Hello,</p>
-        <p>{requestor_name} has requested your feedback on the topic: "<strong>{topic}</strong>".</p>
-        <p>Click the button below to provide your feedback:</p>
-        <p style="text-align: center;">
-            <a href="{feedback_url}" 
-               style="display: inline-block; padding: 10px 20px; 
-                      background-color: #007bff; color: white; 
-                      text-decoration: none; border-radius: 5px;">
-                Provide Feedback
-            </a>
-        </p>
-        </div>
-        """
+        # Generate a unique feedback URL
+        feedback_url = f"https://yourappdomain.com/feedback/{request_id}"
         
-        return send_email(
-            subject=f"Feedback Request - {topic}",
-            recipients=[recipient_email],
-            html_content=html_content,
-            request_id=request_id
+        # Get the SendGrid template ID from environment variables
+        template_id = current_app.config['SENDGRID_FEEDBACK_REQUEST_TEMPLATE']
+        
+        # Create email message with dynamic template data
+        message = Mail(
+            from_email=current_app.config['SENDGRID_FROM_EMAIL'],
+            to_emails=recipient_email,
         )
+        message.dynamic_template_data = {
+            "requestor_name": requestor_name,
+            "feedback_link": feedback_url
+        }
+        message.template_id = template_id
+
+        # Send email using SendGrid
+        sg = SendGridAPIClient(api_key=current_app.config['SENDGRID_API_KEY'])
+        response = sg.send(message)
+
+        # Log SendGrid response
+        logger.info(f"Email sent: {response.status_code}", extra={"request_id": request_id})
+        logger.debug(f"SendGrid response body: {response.body}", extra={"request_id": request_id})
+        logger.debug(f"SendGrid response headers: {response.headers}", extra={"request_id": request_id})
         
+        return True
     except Exception as e:
-        logger.error(f"Error preparing feedback invitation: {str(e)}", 
-                    extra={"request_id": request_id},
-                    exc_info=True)
-        raise
+        logger.error(f"Failed to send email: {str(e)}", extra={"request_id": request_id})
+        return False
 
 def send_feedback_submitted_notification(recipient_email: str, provider_name: str, topic: str, feedback_url: str, request_id: str):
     """Send feedback submission notification email"""
