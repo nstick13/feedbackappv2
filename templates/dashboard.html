@@ -75,7 +75,7 @@
                     <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
                 </div>
                 <div class="modal-body">
-                    <form id="feedbackRequestForm">
+                    <form id="feedback-form">
                         <div class="mb-3">
                             <label for="topic" class="form-label">Topic/Area for Feedback</label>
                             <input type="text" class="form-control" id="topic" required>
@@ -99,7 +99,7 @@
     <script src="{{ url_for('static', filename='js/dashboard.js') }}"></script>
     <script>
         $(document).ready(function() {
-            $('#feedbackRequestForm').on('submit', function(event) {
+            $('#feedback-form').on('submit', function(event) {
                 event.preventDefault();
                 const topic = $('#topic').val();
                 const recipient_email = $('#recipient_email').val();
