@@ -7,8 +7,6 @@ from models import db, FeedbackRequest, FeedbackProvider, FeedbackSession, User
 from chat_service import generate_feedback_prompts, analyze_feedback, openai_client, initiate_user_conversation
 from notification_service import (
     send_feedback_request_email,
-    send_feedback_submitted_notification,
-    send_analysis_completed_notification
 )
 from auth_utils import create_feedback_token, verify_feedback_token
 import json
