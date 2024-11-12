@@ -301,10 +301,10 @@ def request_feedback():
         feedback_url = url_for('main.feedback_session', request_id=request_id, _external=True)
 
         # Send feedback request email
-        send_feedback_request_email(
+        send_feedback_invitation(
             recipient_email=recipient_email,
             requestor_name=current_user.username,
-            feedback_url=feedback_url,
+            topic=topic,
             request_id=request_id
         )
 
