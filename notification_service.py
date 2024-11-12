@@ -36,7 +36,11 @@ def send_email(subject: str, recipients: List[str], html_content: str, request_i
         sg = SendGridAPIClient(api_key=current_app.config['SENDGRID_API_KEY'])
         response = sg.send(message)
 
+        # Log SendGrid response
         logger.info(f"Email sent: {response.status_code}", extra={"request_id": request_id})
+        logger.debug(f"SendGrid response body: {response.body}", extra={"request_id": request_id})
+        logger.debug(f"SendGrid response headers: {response.headers}", extra={"request_id": request_id})
+        
         return True
     except Exception as e:
         logger.error(f"Failed to send email: {str(e)}", extra={"request_id": request_id})
@@ -50,33 +54,30 @@ def send_feedback_invitation(recipient_email: str, requestor_name: str, topic: s
         
         html_content = f"""
         <div style="max-width: 600px; margin: 0 auto; padding: 20px;">
-            <h2 style="color: #333;">Feedback Request</h2>
-            <p>Hello,</p>
-            <p>{requestor_name} has requested your feedback regarding: <strong>{topic}</strong></p>
-            <p>Please click the button below to provide your feedback:</p>
-            <p style="text-align: center;">
-                <a href="{feedback_url}" 
-                   style="display: inline-block; padding: 10px 20px; 
-                          background-color: #007bff; color: white; 
-                          text-decoration: none; border-radius: 5px;">
-                    Provide Feedback
-                </a>
-            </p>
-            <p>Thank you for your time!</p>
+        <h2 style="color: #333;">Feedback Invitation</h2>
+        <p>Hello,</p>
+        <p>{requestor_name} has requested your feedback on the topic: "<strong>{topic}</strong>".</p>
+        <p>Click the button below to provide your feedback:</p>
+        <p style="text-align: center;">
+            <a href="{feedback_url}" 
+               style="display: inline-block; padding: 10px 20px; 
+                      background-color: #007bff; color: white; 
+                      text-decoration: none; border-radius: 5px;">
+                Provide Feedback
+            </a>
+        </p>
         </div>
         """
         
-        logger.debug(f"Generated feedback URL: {feedback_url}", extra={"request_id": request_id})
-        
         return send_email(
-            subject=f"Feedback Request from {requestor_name}",
+            subject=f"Feedback Request - {topic}",
             recipients=[recipient_email],
             html_content=html_content,
             request_id=request_id
         )
         
     except Exception as e:
-        logger.error(f"Error preparing feedback invitation email: {str(e)}", 
+        logger.error(f"Error preparing feedback invitation: {str(e)}", 
                     extra={"request_id": request_id},
                     exc_info=True)
         raise
