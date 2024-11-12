@@ -99,18 +99,27 @@
     <script src="{{ url_for('static', filename='js/dashboard.js') }}"></script>
     <script>
         $(document).ready(function() {
+            // Trigger form submission when clicking the "Request Feedback" button
+            $('#submitRequest').on('click', function(event) {
+                event.preventDefault();
+                $('#feedback-form').submit(); // Trigger the form's submit event
+            });
+
+            // Handle the form submission with AJAX
             $('#feedback-form').on('submit', function(event) {
                 event.preventDefault();
                 const topic = $('#topic').val();
                 const recipient_email = $('#recipient_email').val();
                 
                 $.ajax({
-                    url: '/request_feedback',
+                    url: '/request_feedback', // Update this URL if needed
                     type: 'POST',
                     contentType: 'application/json',
                     data: JSON.stringify({ topic: topic, recipient_email: recipient_email }),
                     success: function(response) {
                         alert('Feedback request sent successfully');
+                        $('#newFeedbackModal').modal('hide'); // Close the modal
+                        $('#feedback-form')[0].reset(); // Reset the form fields
                     },
                     error: function(response) {
                         alert('Error sending feedback request');
