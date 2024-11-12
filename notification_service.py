@@ -1,8 +1,10 @@
 import logging
 from typing import List, Dict
-from flask import current_app
+from flask import current_app, Blueprint, render_template, jsonify
+from flask_login import login_required, current_user
 from sendgrid import SendGridAPIClient
 from sendgrid.helpers.mail import Mail
+import uuid
 
 logging.basicConfig(
     level=logging.DEBUG,
