@@ -15,6 +15,7 @@ class User(UserMixin, db.Model):
 
 class FeedbackRequest(db.Model):
     id = db.Column(db.Integer, primary_key=True)
+    request_id = db.Column(db.String(36), unique=True, nullable=False)
     topic = db.Column(db.String(200), nullable=False)
     requestor_id = db.Column(db.String(100), db.ForeignKey('user.id_string'), nullable=False)
     status = db.Column(db.String(20), default='pending')
