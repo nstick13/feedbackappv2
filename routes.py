@@ -316,11 +316,14 @@ def request_feedback():
         db.session.add(feedback_request)
         db.session.commit()
 
+        # Generate feedback URL
+        feedback_url = url_for('main.feedback_session', request_id=request_id, _external=True)
+
         # Send feedback request email
-        send_feedback_invitation(
+        send_feedback_request_email(
             recipient_email=recipient_email,
             requestor_name=current_user.username,
-            topic=topic,
+            feedback_url=feedback_url,
             request_id=request_id
         )
 

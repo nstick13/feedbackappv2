@@ -1,5 +1,5 @@
 import logging
-from typing import List
+from typing import List, Dict
 from flask import current_app
 from sendgrid import SendGridAPIClient
 from sendgrid.helpers.mail import Mail
@@ -10,11 +10,10 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-def send_email(subject: str, recipients: List[str], html_content: str, request_id: str) -> bool:
-    """Send email using SendGrid with detailed logging"""
+def send_email_with_template(template_id: str, recipients: List[str], dynamic_data: Dict[str, str], request_id: str) -> bool:
+    """Send email using SendGrid template with detailed logging"""
     try:
-        logger.info(f"Preparing to send email: {subject} to {recipients}", 
-                   extra={"request_id": request_id})
+        logger.info(f"Preparing to send email to {recipients}", extra={"request_id": request_id})
         
         # Log email configuration
         logger.debug(
@@ -24,49 +23,12 @@ def send_email(subject: str, recipients: List[str], html_content: str, request_i
             extra={"request_id": request_id}
         )
 
-        # Create email message
-        message = Mail(
-            from_email=current_app.config['SENDGRID_FROM_EMAIL'],
-            to_emails=recipients,
-            subject=subject,
-            html_content=html_content
-        )
-
-        # Send email using SendGrid
-        sg = SendGridAPIClient(api_key=current_app.config['SENDGRID_API_KEY'])
-        response = sg.send(message)
-
-        # Log SendGrid response
-        logger.info(f"Email sent: {response.status_code}", extra={"request_id": request_id})
-        logger.debug(f"SendGrid response body: {response.body}", extra={"request_id": request_id})
-        logger.debug(f"SendGrid response headers: {response.headers}", extra={"request_id": request_id})
-        
-        return True
-    except Exception as e:
-        logger.error(f"Failed to send email: {str(e)}", extra={"request_id": request_id})
-        return False
-
-def send_feedback_invitation(recipient_email: str, requestor_name: str, topic: str, request_id: str):
-    """Send feedback invitation email using SendGrid template"""
-    try:
-        logger.info(f"Preparing feedback invitation email for {recipient_email}", 
-                   extra={"request_id": request_id})
-        
-        # Generate a unique feedback URL
-        feedback_url = f"https://yourappdomain.com/feedback/{request_id}"
-        
-        # Get the SendGrid template ID from environment variables
-        template_id = current_app.config['SENDGRID_FEEDBACK_REQUEST_TEMPLATE']
-        
         # Create email message with dynamic template data
         message = Mail(
             from_email=current_app.config['SENDGRID_FROM_EMAIL'],
-            to_emails=recipient_email,
+            to_emails=recipients,
         )
-        message.dynamic_template_data = {
-            "requestor_name": requestor_name,
-            "feedback_link": feedback_url
-        }
+        message.dynamic_template_data = dynamic_data
         message.template_id = template_id
 
         # Send email using SendGrid
@@ -83,78 +45,45 @@ def send_feedback_invitation(recipient_email: str, requestor_name: str, topic: s
         logger.error(f"Failed to send email: {str(e)}", extra={"request_id": request_id})
         return False
 
-def send_feedback_submitted_notification(recipient_email: str, provider_name: str, topic: str, feedback_url: str, request_id: str):
-    """Send feedback submission notification email"""
-    try:
-        logger.info(f"Preparing feedback submission notification for {recipient_email}", 
-                   extra={"request_id": request_id})
-        
-        html_content = f"""
-        <div style="max-width: 600px; margin: 0 auto; padding: 20px;">
-            <h2 style="color: #333;">New Feedback Received</h2>
-            <p>Hello,</p>
-            <p>{provider_name} has submitted feedback for your request: <strong>{topic}</strong></p>
-            <p>Click the button below to view the feedback:</p>
-            <p style="text-align: center;">
-                <a href="{feedback_url}" 
-                   style="display: inline-block; padding: 10px 20px; 
-                          background-color: #007bff; color: white; 
-                          text-decoration: none; border-radius: 5px;">
-                    View Feedback
-                </a>
-            </p>
-        </div>
-        """
-        
-        logger.debug(f"Generated feedback URL: {feedback_url}", extra={"request_id": request_id})
-        
-        return send_email(
-            subject=f"New Feedback Received from {provider_name}",
-            recipients=[recipient_email],
-            html_content=html_content,
-            request_id=request_id
-        )
-        
-    except Exception as e:
-        logger.error(f"Error preparing feedback submission notification: {str(e)}", 
-                    extra={"request_id": request_id},
-                    exc_info=True)
-        raise
+def send_feedback_request_email(recipient_email: str, requestor_name: str, feedback_url: str, request_id: str):
+    """Send feedback request email using SendGrid template"""
+    template_id = current_app.config['SENDGRID_FEEDBACK_REQUEST_TEMPLATE']
+    dynamic_data = {
+        "requestor_name": requestor_name,
+        "feedback_link": feedback_url
+    }
+    return send_email_with_template(template_id, [recipient_email], dynamic_data, request_id)
 
-def send_analysis_completed_notification(recipient_email: str, topic: str, feedback_url: str, request_id: str):
-    """Send analysis completion notification email"""
-    try:
-        logger.info(f"Preparing analysis completion notification for {recipient_email}", 
-                   extra={"request_id": request_id})
-        
-        html_content = f"""
-        <div style="max-width: 600px; margin: 0 auto; padding: 20px;">
-            <h2 style="color: #333;">Feedback Analysis Complete</h2>
-            <p>Hello,</p>
-            <p>The AI analysis of your feedback request for "<strong>{topic}</strong>" is now complete.</p>
-            <p>Click the button below to view the analysis:</p>
-            <p style="text-align: center;">
-                <a href="{feedback_url}" 
-                   style="display: inline-block; padding: 10px 20px; 
-                          background-color: #007bff; color: white; 
-                          text-decoration: none; border-radius: 5px;">
-                    View Analysis
-                </a>
-            </p>
-        </div>
-        """
-        
-        logger.debug(f"Generated feedback URL: {feedback_url}", extra={"request_id": request_id})
-        
-        return send_email(
-            subject=f"Feedback Analysis Complete - {topic}",
-            recipients=[recipient_email],
-            html_content=html_content,
-            request_id=request_id
-        )
-        
-    except Exception as e:
-        logger.error(f"Error preparing analysis completion notification: {str(e)}", 
-                    extra={"request_id": request_id},
-                    exc_info=True)
-        raise
+def send_feedback_reminder_email(recipient_email: str, requestor_name: str, feedback_url: str, request_id: str):
+    """Send feedback reminder email using SendGrid template"""
+    template_id = current_app.config['SENDGRID_FEEDBACK_REMINDER_TEMPLATE']
+    dynamic_data = {
+        "requestor_name": requestor_name,
+        "feedback_link": feedback_url
+    }
+    return send_email_with_template(template_id, [recipient_email], dynamic_data, request_id)
+
+def send_feedback_provided_email(recipient_email: str, provider_name: str, feedback_url: str, request_id: str):
+    """Send feedback provided email using SendGrid template"""
+    template_id = current_app.config['SENDGRID_FEEDBACK_PROVIDED_TEMPLATE']
+    dynamic_data = {
+        "provider_name": provider_name,
+        "feedback_link": feedback_url
+    }
+    return send_email_with_template(template_id, [recipient_email], dynamic_data, request_id)
+
+def send_verify_email(recipient_email: str, verification_link: str, request_id: str):
+    """Send verify email address email using SendGrid template"""
+    template_id = current_app.config['SENDGRID_VERIFY_EMAIL_TEMPLATE']
+    dynamic_data = {
+        "verification_link": verification_link
+    }
+    return send_email_with_template(template_id, [recipient_email], dynamic_data, request_id)
+
+def send_password_reset_email(recipient_email: str, reset_link: str, request_id: str):
+    """Send password reset email using SendGrid template"""
+    template_id = current_app.config['SENDGRID_PASSWORD_RESET_TEMPLATE']
+    dynamic_data = {
+        "reset_link": reset_link
+    }
+    return send_email_with_template(template_id, [recipient_email], dynamic_data, request_id)
