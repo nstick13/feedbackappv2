@@ -35,12 +35,12 @@ def initiate_conversation():
         logger.error(f"Failed to initiate conversation: {str(e)}", extra={"request_id": request_id})
         return jsonify({"error": "Failed to initiate conversation"}), 500
 
-@main.route('/feedback/session/<int:request_id>')
+@main.route('/feedback/session/<string:request_id>')
 def feedback_session(request_id):
     session_id = str(uuid.uuid4())
     try:
         logger.debug(f"Accessing feedback session {request_id}", extra={"request_id": session_id})
-        feedback_request = FeedbackRequest.query.get_or_404(request_id)
+        feedback_request = FeedbackRequest.query.filter_by(request_id=request_id).first_or_404()
         
         # Check authentication method
         token = request.args.get('token')
@@ -123,7 +123,7 @@ def send_reminder(provider_id):
     request_id = str(uuid.uuid4())
     try:
         provider = FeedbackProvider.query.get_or_404(provider_id)
-        feedback_request = FeedbackRequest.query.get(provider.feedback_request_id)
+        feedback_request = FeedbackRequest.query.filter_by(request_id=provider.feedback_request_id).first()
         
         # Verify the current user is the requestor
         if feedback_request.requestor_id != current_user.id:
@@ -196,7 +196,7 @@ def chat_message():
                 "message": "Missing required parameters"
             }), 400
         
-        feedback_request = FeedbackRequest.query.get_or_404(feedback_request_id)
+        feedback_request = FeedbackRequest.query.filter_by(request_id=request_id).first_or_404()
         
         # Check authentication method
         token = request.args.get('token')
