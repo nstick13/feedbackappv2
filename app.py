@@ -63,7 +63,6 @@ else:
     logger.info(f"OpenAI API key is set: {openai_api_key[:5]}...")
 
 # Initialize extensions
-db.init_app(app)
 login_manager = LoginManager()
 login_manager.init_app(app)
 mail = Mail(app)
