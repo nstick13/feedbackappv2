@@ -24,13 +24,13 @@ if not app.secret_key:
     logger.error("No Flask secret key set!")
 
 # Determine the database URL
-database_url = os.getenv("DATABASE_URL", "postgresql://localhost/natetgreat")
+database_url = os.getenv("DATABASE_URL", "postgresql://natetgreat@localhost:5432/aifeedback_db")
 
-# Replace 'postgres://' with 'postgresql://'
+# If Heroku's DATABASE_URL uses `postgres://`, replace it with `postgresql://`
 if database_url.startswith("postgres://"):
     database_url = database_url.replace("postgres://", "postgresql://", 1)
 
-# Configure the SQLAlchemy Database URI
+# Set the database URI in the app configuration
 app.config['SQLALCHEMY_DATABASE_URI'] = database_url
 
 # Initialize the database with the app

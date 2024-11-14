@@ -1,2 +1,3 @@
 .env
 copilot convos.md
+heroku_db_dump.sql
