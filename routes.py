@@ -35,6 +35,46 @@ def initiate_conversation():
         logger.error(f"Failed to initiate conversation: {str(e)}", extra={"request_id": request_id})
         return jsonify({"error": "Failed to initiate conversation"}), 500
 
+@main.route('/request_feedback', methods=['POST'])
+@login_required
+def request_feedback():
+    request_id = str(uuid.uuid4())
+    try:
+        logger.debug(f"Requesting feedback for user {current_user.id_string}", extra={"request_id": request_id})
+        
+        data = request.get_json()
+        topic = data.get('topic')
+        recipient_email = data.get('recipient_email')
+        
+        if not topic or not recipient_email:
+            logger.error("Topic and recipient email are required", extra={"request_id": request_id})
+            return jsonify({"error": "Topic and recipient email are required"}), 400
+        
+        # Create a new feedback request with the UUID
+        feedback_request = FeedbackRequest(
+            request_id=request_id,
+            topic=topic,
+            requestor_id=current_user.id_string
+        )
+        db.session.add(feedback_request)
+        db.session.commit()
+
+        # Generate feedback URL
+        feedback_url = url_for('main.feedback_session', request_id=request_id, _external=True)
+
+        # Send feedback request email
+        send_feedback_request_email(
+            recipient_email=recipient_email,
+            requestor_name=current_user.username,
+            feedback_url=feedback_url,
+            request_id=request_id
+        )
+
+        return jsonify({"message": "Feedback request sent successfully"}), 200
+    except Exception as e:
+        logger.error(f"Failed to request feedback: {str(e)}", extra={"request_id": request_id})
+        return jsonify({"error": "Failed to request feedback"}), 500
+
 @main.route('/feedback/session/<string:request_id>')
 def feedback_session(request_id):
     session_id = str(uuid.uuid4())
@@ -271,42 +311,16 @@ def chat_message():
             "message": str(e)
         }), 500
 
-@main.route('/request_feedback', methods=['POST'])
+@main.route('/send_reminder/<request_id>', methods=['POST'])
 @login_required
-def request_feedback():
-    request_id = str(uuid.uuid4())
+def send_reminder(request_id):
     try:
-        logger.debug(f"Requesting feedback for user {current_user.id_string}", extra={"request_id": request_id})
+        feedback_request = FeedbackRequest.query.filter_by(request_id=request_id).first()
+        if not feedback_request:
+            return jsonify({"error": "Invalid request ID"}), 404
         
-        data = request.get_json()
-        topic = data.get('topic')
-        recipient_email = data.get('recipient_email')
-        
-        if not topic or not recipient_email:
-            logger.error("Topic and recipient email are required", extra={"request_id": request_id})
-            return jsonify({"error": "Topic and recipient email are required"}), 400
-        
-        # Create a new feedback request
-        feedback_request = FeedbackRequest(
-            topic=topic,
-            requestor_id=current_user.id_string
-        )
-        db.session.add(feedback_request)
-        db.session.commit()
-
-        # Generate feedback URL
-        feedback_url = url_for('main.feedback_session', request_id=request_id, _external=True)
-
-        # Send feedback request email
-        send_feedback_request_email(
-            recipient_email=recipient_email,
-            requestor_name=current_user.username,
-            feedback_url=feedback_url,
-            request_id=request_id
-        )
-
-        return jsonify({"message": "Feedback request sent successfully"}), 200
+        # Your existing code for sending reminder
     except Exception as e:
-        logger.error(f"Failed to request feedback: {str(e)}", extra={"request_id": request_id})
-        return jsonify({"error": "Failed to request feedback"}), 500
+        logger.error(f"Failed to send reminder: {str(e)}", extra={"request_id": request_id})
+        return jsonify({"error": "Failed to send reminder"}), 500
 
